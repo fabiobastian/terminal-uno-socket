@@ -13,7 +13,8 @@
 #include <stdio.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
-
+#include <assert.h>
+#include <stdlib.h>
 
 /** 
  * ============================================================================
@@ -21,6 +22,7 @@
  * ============================================================================
  */
 #define MIN_SCREEN_HEIGHT 50
+#define VERTICAL_MARGIN   10
 #define MIN_SCREEN_WIDTH  200
 
 
@@ -29,57 +31,200 @@
  * Structs
  * ============================================================================
  */
-struct Screen {
+typedef struct {
 	int width;
 	int height;
-};
-
+	char *buffer;
+} Screen;
 
 // @IMPROVE(nathan): so funciona no linux esse carinha aqui, depois preciso encontrar uma
 // forma melhor de fazer ele ser dinamico, usando alguma variavel na inicializacao, etc.
-struct Screen getScreenSize() {
+Screen getScreenSize() {
 	struct winsize w;
-	struct Screen  s;
+	Screen  s;
 
 	// sucesso
 	if ( ioctl( STDOUT_FILENO, TIOCGWINSZ, &w ) == 0 ) {
-		s.width  = w.ws_row;
-		s.height = w.ws_col;
+		s.width  = w.ws_col;
+		s.height = w.ws_row - VERTICAL_MARGIN;
+		s.buffer = malloc( w.ws_row * w.ws_col );
 		return s;
 	}
 
 	s.width  = 0;
 	s.height = 0;
+	s.buffer = NULL;
 	return s;
 }
 
 
-char *renderBoard( struct Screen screen ) {
-	return NULL;
+/**
+ * Layout Section
+ */
+typedef struct {
+    int x;
+    int y;
+    int width;
+    int height;
+} Rectangle;
+
+typedef enum {
+    ZONE_TOP,
+    ZONE_RIGHT,
+    ZONE_LEFT,
+    ZONE_BOTTOM,
+    ZONE_CENTER
+} ZoneType;
+
+typedef struct {
+    Rectangle bounds;
+    ZoneType zone;
+} Zone;
+
+typedef struct {
+    Zone top;
+    Zone right;
+    Zone bottom;
+    Zone left;
+    Zone center;
+} BoardLayout;
+
+
+/**
+== Board Layout ==
+top
+┌─────────────────────────────┐
+│                             │
+└─────────────────────────────┘
+
+left       center       right
+┌────┐    ┌───────┐    ┌────┐
+│    │    │       │    │    │
+│    │    │       │    │    │
+│    │    │       │    │    │
+└────┘    └───────┘    └────┘
+
+bottom
+┌─────────────────────────────┐
+│                             │
+└─────────────────────────────┘
+ */
+
+int index(Screen *screen, int x, int y) {
+    return y * screen->width + x;
 }
 
+void setPixel(Screen *screen, int x, int y, char character) {
+    screen->buffer[ y * screen->width + x ] = character;
+}
+
+void clearScreen(Screen *screen) {
+    for (int y = 0; y < screen->height; y++) {
+        for (int x = 0; x < screen->width; x++) {
+            setPixel(screen, x, y, ' ');
+        }
+    }
+}
+
+void drawBoardBorder(Screen *screen) {
+    int width = screen->width;
+    int height = screen->height;
+
+    // Topo
+    for (int x = 0; x < width; x++) {
+        setPixel(screen, x, 0, '-');
+    }
+
+    // Bottom
+    for (int x = 0; x < width; x++) {
+        setPixel(screen, x, height - 1, '-');
+    }
+
+    // Left
+    for (int y = 0; y < height; y++) {
+        setPixel(screen, 0, y, '|');
+    }
+
+    // Right
+    for (int y = 0; y < height; y++) {
+        setPixel(screen, width - 1, y, '|');
+    }
+}
+
+void renderScreen(Screen *screen)
+{
+    for (int y = 0; y < screen->height; y++) {
+
+        for (int x = 0; x < screen->width; x++) {
+            putchar(
+                screen->buffer[
+                    y * screen->width + x
+                ]
+            );
+        }
+
+        putchar('\n');
+    }
+}
+
+void drawTopZone(Screen *screen) {
+	const float verticalPadding = 0.80;
+	const float horizontalPadding = 0.90;
+
+    int width = screen->width;
+    int height = screen->height;
+
+    // Topo
+    for (int x = 1; x < width - 1; x++) {
+        setPixel(screen, x, height - (height * verticalPadding), '-');
+    }
+
+    // Bottom
+    for (int x = 1; x < width - 1; x++) {
+        setPixel(screen, x, height - (height * 0.20), '-');
+    }
+
+    // Right
+    for (int y = 1; y < height-1; y++) {
+        setPixel(screen, width - (width * horizontalPadding ), y, '|');
+    }
+
+    // Left
+    for (int y = 1; y < height-1; y++) {
+        setPixel(screen, width - (width * 0.10 ), y, '|');
+    }
+}
+
+
+
 int main() {
-	struct Screen screen = getScreenSize();
+	 Screen screen = getScreenSize();
 
 	/**
 	 * Setup and screen validation
 	 */
 	{
-		printf( "Screen height: %d\n", screen.height );
-		printf( "Screen width: %d\n", screen.width );
+		//printf( "Screen height: %d\n", screen.height );
+		//printf( "Screen width: %d\n", screen.width );
 
-		if ( screen.height  < MIN_SCREEN_HEIGHT ) {
-			printf( "[ERROR]: Screen height should be at least %d but was %d\n.", screen.height,screen.height );
+		if ( screen.height  < ( MIN_SCREEN_HEIGHT - VERTICAL_MARGIN ) ) {
+			printf( "[ERROR]: Screen height should be at least %d but was %d.\n", MIN_SCREEN_HEIGHT, screen.height );
 			return 1;
 		}
 
 		if ( screen.width  < MIN_SCREEN_WIDTH ) {
-			printf( "[ERROR]: Screen width should be at least %d but was %d\n.", screen.width, screen.width );
+			printf( "[ERROR]: Screen width should be at least %d but was %d.\n", MIN_SCREEN_WIDTH, screen.width );
 			return 1;
 		}
 	}
 
-	char *board = renderBoard( screen );
+    clearScreen(&screen);
+
+    drawBoardBorder(&screen);
+
+	drawTopZone(&screen);
+
+    renderScreen(&screen);
 
 	return 0;
 }
