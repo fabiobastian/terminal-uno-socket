@@ -110,95 +110,88 @@ bottom
 └─────────────────────────────┘
  */
 
-int index(Screen *screen, int x, int y) {
+int index( Screen *screen, int x, int y ) {
     return y * screen->width + x;
 }
 
-void setPixel(Screen *screen, int x, int y, char character) {
+void setPixel( Screen *screen, int x, int y, char character ) {
     screen->buffer[ y * screen->width + x ] = character;
 }
 
-void clearScreen(Screen *screen) {
-    for (int y = 0; y < screen->height; y++) {
-        for (int x = 0; x < screen->width; x++) {
-            setPixel(screen, x, y, ' ');
+void clearScreen( Screen *screen ) {
+    for ( int y = 0; y < screen->height; y++ ) {
+        for ( int x = 0; x < screen->width; x++ ) {
+            setPixel( screen, x, y, ' ' );
         }
     }
 }
 
-void drawBoardBorder(Screen *screen) {
-    int width = screen->width;
+void drawBoardBorder( Screen *screen ) {
+    int width  = screen->width;
     int height = screen->height;
 
-    // Topo
-    for (int x = 0; x < width; x++) {
-        setPixel(screen, x, 0, '-');
+    // Top
+    for ( int x = 0; x < width; x++ ) {
+        setPixel( screen, x, 0, '-' );
     }
 
     // Bottom
-    for (int x = 0; x < width; x++) {
-        setPixel(screen, x, height - 1, '-');
+    for ( int x = 0; x < width; x++ ) {
+        setPixel( screen, x, height - 1, '-' );
     }
 
     // Left
-    for (int y = 0; y < height; y++) {
-        setPixel(screen, 0, y, '|');
+    for ( int y = 0; y < height; y++ ) {
+        setPixel( screen, 0, y, '|' );
     }
 
     // Right
-    for (int y = 0; y < height; y++) {
-        setPixel(screen, width - 1, y, '|');
+    for ( int y = 0; y < height; y++ ) {
+        setPixel( screen, width - 1, y, '|' );
     }
 }
 
-void renderScreen(Screen *screen)
-{
-    for (int y = 0; y < screen->height; y++) {
-
-        for (int x = 0; x < screen->width; x++) {
-            putchar(
-                screen->buffer[
-                    y * screen->width + x
-                ]
-            );
+void renderScreen( Screen *screen ) {
+    for ( int y = 0; y < screen->height; y++ ) {
+        for ( int x = 0; x < screen->width; x++ ) {
+            putchar( screen->buffer[ y * screen->width + x ] );
         }
-
-        putchar('\n');
+        putchar( '\n' );
     }
 }
 
-void drawTopZone(Screen *screen) {
-	const float verticalPadding = 0.80;
+
+void drawZone( Screen *screen) {
+	const float verticalPadding   = 0.80;
 	const float horizontalPadding = 0.90;
 
-    int width = screen->width;
+    int width  = screen->width;
     int height = screen->height;
 
-    // Topo
-    for (int x = 1; x < width - 1; x++) {
-        setPixel(screen, x, height - (height * verticalPadding), '-');
+    // Top
+    for ( int x = 1; x < width - 1; x++ ) {
+        setPixel( screen, x, height - ( height * verticalPadding ), '-' );
     }
 
     // Bottom
-    for (int x = 1; x < width - 1; x++) {
-        setPixel(screen, x, height - (height * 0.20), '-');
+    for ( int x = 1; x < width - 1; x++ ) {
+        setPixel( screen, x, height - ( height * 0.20 ), '-' );
     }
 
     // Right
-    for (int y = 1; y < height-1; y++) {
-        setPixel(screen, width - (width * horizontalPadding ), y, '|');
+    for ( int y = 1; y < height-1; y++ ) {
+        setPixel( screen, width - ( width * horizontalPadding ), y, '|' );
     }
 
     // Left
-    for (int y = 1; y < height-1; y++) {
-        setPixel(screen, width - (width * 0.10 ), y, '|');
+    for ( int y = 1; y < height-1; y++ ) {
+        setPixel( screen, width - ( width * 0.10 ), y, '|' );
     }
 }
-
 
 
 int main() {
-	 Screen screen = getScreenSize();
+	Screen screen = getScreenSize();
 
 	/**
 	 * Setup and screen validation
@@ -222,7 +215,7 @@ int main() {
 
     drawBoardBorder(&screen);
 
-	drawTopZone(&screen);
+	drawZone(&screen);
 
     renderScreen(&screen);
 
