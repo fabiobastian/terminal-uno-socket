@@ -17,7 +17,7 @@
 #include <stdlib.h>
 
 
-/** 
+/**
  * ============================================================================
  * Constants
  * ============================================================================
@@ -29,6 +29,16 @@
 #define TOP_HEIGHT        10
 #define BOTTOM_HEIGHT     10
 
+#define COLOR_DEFAULT     0
+#define COLOR_BLACK       30
+#define COLOR_RED         31
+#define COLOR_GREEN       32
+#define COLOR_YELLOW      33
+#define COLOR_BLUE        34
+#define COLOR_MAGENTA     35
+#define COLOR_CYAN        36
+#define COLOR_WHITE       37
+
 
 /**
  * ============================================================================
@@ -36,9 +46,16 @@
  * ============================================================================
  */
 typedef struct {
+    char character;
+    int  foreground;
+    int  background;
+} Cell;
+
+
+typedef struct {
 	int width;
 	int height;
-	char *buffer;
+	Cell *buffer;
 } Screen;
 
 
@@ -75,8 +92,9 @@ typedef struct {
 
 
 typedef struct {
-    char      value;
-    char      symbol;
+    char value;
+    char symbol;
+    int  color; // NOVO: cor de fundo da carta (COLOR_RED, COLOR_BLUE, etc.)
 } Card;
 
 
@@ -98,7 +116,7 @@ Screen getScreenSize() {
 	if ( ioctl( STDOUT_FILENO, TIOCGWINSZ, &w ) == 0 ) {
 		s.width  = w.ws_col;
 		s.height = w.ws_row - VERTICAL_MARGIN;
-		s.buffer = malloc( w.ws_row * w.ws_col );
+		s.buffer = malloc( w.ws_row * w.ws_col * sizeof(Cell) );
 		return s;
 	}
 
@@ -109,45 +127,47 @@ Screen getScreenSize() {
 }
 
 
-/**
-== Board Layout ==
-top
-┌─────────────────────────────┐
-│                             │
-└─────────────────────────────┘
-
-left       center       right
-┌────┐    ┌───────┐    ┌────┐
-│    │    │       │    │    │
-│    │    │       │    │    │
-│    │    │       │    │    │
-└────┘    └───────┘    └────┘
-
-bottom
-┌─────────────────────────────┐
-│                             │
-└─────────────────────────────┘
- */
-
 int index( Screen *screen, int x, int y ) {
     return y * screen->width + x;
 }
+
 
 void setPixel( Screen *screen, int x, int y, char character ) {
     if ( x < 0 || x >= screen->width ||  y < 0 || y >= screen->height ) {
         printf( "OUT OF BOUNDS: x=%d y=%d screen=%dx%d\n", x, y, screen->width, screen->height );
         return;
     }
-    screen->buffer[ y * screen->width + x ] = character;
+    screen->buffer[ y * screen->width + x ].character = character;
 }
+
+
+void setForeground( Screen *screen, int x, int y, int color ) {
+    if ( x < 0 || x >= screen->width || y < 0 || y >= screen->height ) {
+        return;
+    }
+    screen->buffer[ y * screen->width + x ].foreground = color;
+}
+
+
+void setBackground( Screen *screen, int x, int y, int color ) {
+    if ( x < 0 || x >= screen->width || y < 0 || y >= screen->height ) {
+        return;
+    }
+    screen->buffer[ y * screen->width + x ].background = color;
+}
+
 
 void clearScreen( Screen *screen ) {
     for ( int y = 0; y < screen->height; y++ ) {
         for ( int x = 0; x < screen->width; x++ ) {
-            setPixel( screen, x, y, ' ' );
+            int idx = y * screen->width + x;
+            screen->buffer[idx].character  = ' ';
+            screen->buffer[idx].foreground = COLOR_DEFAULT;
+            screen->buffer[idx].background = COLOR_DEFAULT;
         }
     }
 }
+
 
 void drawBoardBorder( Screen *screen ) {
     int width  = screen->width;
@@ -174,12 +194,33 @@ void drawBoardBorder( Screen *screen ) {
     }
 }
 
+
 void renderScreen( Screen *screen ) {
+    int lastFg = -1;
+    int lastBg = -1;
+
     for ( int y = 0; y < screen->height; y++ ) {
         for ( int x = 0; x < screen->width; x++ ) {
-            putchar( screen->buffer[ y * screen->width + x ] );
+            int idx  = y * screen->width + x;
+            Cell cell = screen->buffer[idx];
+
+            if ( cell.foreground != lastFg || cell.background != lastBg ) {
+                if ( cell.foreground == COLOR_DEFAULT && cell.background == COLOR_DEFAULT ) {
+                    printf( "\033[0m" );
+                } else {
+                    int fg = ( cell.foreground == COLOR_DEFAULT ) ? COLOR_WHITE : cell.foreground;
+                    int bg = ( cell.background == COLOR_DEFAULT ) ? 49 : cell.background + 10;
+                    printf( "\033[%d;%dm", fg, bg );
+                }
+                lastFg = cell.foreground;
+                lastBg = cell.background;
+            }
+
+            putchar( cell.character );
         }
-        putchar( '\n' );
+        printf( "\033[0m\n" );
+        lastFg = -1;
+        lastBg = -1;
     }
 }
 
@@ -289,9 +330,9 @@ void drawCard(
     int maxHeight = zone.bounds.height - (paddingY * 2);
 
     // symbol
-    setPixel( screen, ( paddingX + ( MAX_CARD_LENGTH / 2 ) ), ( paddingY + 2 ), '!' );
+    setPixel( screen, ( paddingX + ( MAX_CARD_LENGTH / 2 ) ), ( paddingY + 2 ), card.symbol );
 
-    // horizontal
+    // horizontal (bordas)
     for (int x = 0; x < MAX_CARD_LENGTH; ++x) {
         int posX = paddingX + x;
 
@@ -304,10 +345,17 @@ void drawCard(
         }
     }
 
-    // vertical
+    // vertical (bordas)
     for (int y = paddingY + 1; y < maxHeight; ++y) {
         setPixel(screen, paddingX, y, '|');
         setPixel(screen, paddingX + MAX_CARD_LENGTH - 1, y, '|');
+    }
+
+    // preenchimento do miolo com a cor da carta
+    for (int y = paddingY + 1; y < maxHeight; ++y) {
+        for (int x = paddingX + 1; x < paddingX + MAX_CARD_LENGTH - 1; ++x) {
+            setBackground( screen, x, y, card.color );
+        }
     }
 }
 
@@ -355,16 +403,19 @@ int main() {
 
     Card cards[] = {
         {
-            .value = '1',
-            .symbol = 'G'
+            .value  = '1',
+            .symbol = '1',
+            .color  = COLOR_RED
         },
         {
-            .value = '1',
-            .symbol = 'G'
+            .value  = '1',
+            .symbol = '2',
+            .color  = COLOR_GREEN
         },
         {
-            .value = '1',
-            .symbol = 'G'
+            .value  = '1',
+            .symbol = '7',
+            .color  = COLOR_BLUE
         },
     };
 
