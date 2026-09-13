@@ -5,6 +5,7 @@ set(CMAKE_C_STANDARD 11)
 
 add_executable(UnoServer
         src/main.c
+        src/structs.c
 )
 
 target_include_directories(UnoServer PRIVATE
