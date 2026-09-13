@@ -117,6 +117,10 @@ int index( Screen *screen, int x, int y ) {
 }
 
 void setPixel( Screen *screen, int x, int y, char character ) {
+    if ( x < 0 || x >= screen->width ||  y < 0 || y >= screen->height ) {
+        printf( "OUT OF BOUNDS: x=%d y=%d screen=%dx%d\n", x, y, screen->width, screen->height );
+        return;
+    }
     screen->buffer[ y * screen->width + x ] = character;
 }
 
@@ -169,18 +173,16 @@ void drawZoneBorder( Screen *screen, Zone layout ) {
 	int width = layout.bounds.width;
 	int height = layout.bounds.height;
 
-	printf("x = %d y = %d width = %d height = %d\n", x,y,width, height);
-
 	switch( layout.zone ) {
 		case ZONE_TOP:
-			for ( int x = x; x < width - 1; x++ ) {
-				setPixel( screen, x, height, '-' );
-			}
-			break;
-		case ZONE_BOTTOM:
-		 for (int px = x; px < x + width; px++) {
-                setPixel(screen, px, y + height - 1, '-');
+            for ( int px = x; px < x + width - 1; px++ ) {
+                setPixel( screen, px, height, '-' );
             }
+			break;
+        case ZONE_BOTTOM:
+            for (int px = x; px < x + width; px++) {
+                setPixel(screen, px, y, '-');
+           }
 			break;
 	}
 }
@@ -195,11 +197,6 @@ void drawBoard( Screen *screen, BoardLayout layout ) {
 
 	drawZoneBorder( screen, layout.top );
 	drawZoneBorder( screen, layout.bottom );
-
-    // Right
-    for ( int y = 1; y < height-1; y++ ) {
-        setPixel( screen, width - ( width * horizontalPadding ), y, '|' );
-    }
 }
 
 
@@ -212,9 +209,9 @@ BoardLayout createBoardLayout( Screen screen ) {
     layout.top = (Zone) {
         .zone = ZONE_TOP,
         .bounds = {
-            .x = 0,
-            .y = 0,
-            .width = screen.width,
+            .x = 1,
+            .y = 1,
+            .width = screen.width - 1,
             .height = TOP_HEIGHT
         }
     };
@@ -222,9 +219,9 @@ BoardLayout createBoardLayout( Screen screen ) {
     layout.bottom = (Zone) {
         .zone = ZONE_BOTTOM,
         .bounds = {
-            .x = 0,
+            .x = 1,
             .y = screen.height - BOTTOM_HEIGHT,
-            .width = screen.width,
+            .width = screen.width - 1,
             .height = BOTTOM_HEIGHT
         }
     };
