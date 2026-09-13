@@ -24,7 +24,7 @@
  */
 #define MIN_SCREEN_HEIGHT 50
 #define VERTICAL_MARGIN   10
-#define MIN_SCREEN_WIDTH  200
+#define MIN_SCREEN_WIDTH  150
 #define SIDE_WIDTH        15
 #define TOP_HEIGHT        10
 #define BOTTOM_HEIGHT     10
@@ -166,6 +166,7 @@ void clearScreen( Screen *screen ) {
             screen->buffer[idx].background = COLOR_DEFAULT;
         }
     }
+    printf( "\033[H\033[2J" );
 }
 
 
@@ -242,19 +243,43 @@ void drawZoneBorder( Screen *screen, Zone layout ) {
                 setPixel( screen, px, y, '-' );
             }
 		    break;
+        case ZONE_CENTER:
+            const int paddingY = 5;
+            const int paddingX = 20;
+
+            int left   = x + paddingX;
+            int right  = x + width  - paddingX;
+            int top    = y + paddingY;
+            int bottom = y + height - paddingY;
+
+            // top
+            for ( int px = left; px <= right; ++px ) {
+                setPixel( screen, px, top, '-' );
+            }
+
+            // bottom
+            for ( int px = left; px <= right; ++px ) {
+                setPixel( screen, px, bottom, '-' );
+            }
+
+            // left
+            for ( int py = top; py <= bottom; ++py ) {
+                setPixel( screen, left, py, '|' );
+            }
+
+            // right
+            for ( int py = top; py <= bottom; ++py ) {
+                setPixel( screen, right, py, '|' );
+            }
+            break;
 	}
 }
 
 
 void drawBoard( Screen *screen, BoardLayout layout ) {
-	const float verticalPadding   = 0.80;
-	const float horizontalPadding = 0.90;
-
-    int width  = screen->width;
-    int height = screen->height;
-
 	drawZoneBorder( screen, layout.top );
 	drawZoneBorder( screen, layout.bottom );
+	drawZoneBorder( screen, layout.center );
 }
 
 
@@ -375,31 +400,22 @@ void drawPlayerHand( Screen *screen, Player *p ) {
 }
 
 
+void drawCardDeck( Screen screen, Zone zone, Card card ) {
+    //TODO implement
+}
+
+
+void drawDiscardPile( Screen screen, Zone zone, Card card ) {
+    //TODO implement
+}
+
+
 int main() {
-	Screen screen = getScreenSize();
-
-	/**
-	 * Setup and screen validation
-	 */
-	{
-		if ( screen.height  < ( MIN_SCREEN_HEIGHT - VERTICAL_MARGIN ) ) {
-			printf( "[ERROR]: Screen height should be at least %d but was %d.\n", MIN_SCREEN_HEIGHT, screen.height );
-			return 1;
-		}
-
-		if ( screen.width  < MIN_SCREEN_WIDTH ) {
-			printf( "[ERROR]: Screen width should be at least %d but was %d.\n", MIN_SCREEN_WIDTH, screen.width );
-			return 1;
-		}
-	}
-
-	BoardLayout layout = createBoardLayout(screen);
-
-    clearScreen(&screen);
-
-    drawBoardBorder(&screen);
-
-	drawBoard(&screen, layout);
+    Card lastCard = {
+        .value  = '1',
+        .symbol = '1',
+        .color  = COLOR_RED
+    };
 
     Card cards[] = {
         {
@@ -419,6 +435,25 @@ int main() {
         },
     };
 
+	Screen screen = getScreenSize();
+
+	/**
+	 * Setup and screen validation
+	 */
+	{
+		if ( screen.height  < ( MIN_SCREEN_HEIGHT - VERTICAL_MARGIN ) ) {
+			printf( "[ERROR]: Screen height should be at least %d but was %d.\n", MIN_SCREEN_HEIGHT, screen.height );
+			return 1;
+		}
+
+		if ( screen.width  < MIN_SCREEN_WIDTH ) {
+			printf( "[ERROR]: Screen width should be at least %d but was %d.\n", MIN_SCREEN_WIDTH, screen.width );
+			return 1;
+		}
+	}
+
+	BoardLayout layout = createBoardLayout( screen );
+
     Player p = {
         .id = 1,
         .zone = layout.top,
@@ -426,9 +461,17 @@ int main() {
         .cardCount = 3
     };
 
+    clearScreen( &screen );
+
+    drawBoardBorder( &screen );
+
+    drawBoard( &screen, layout );
+
+    drawDiscardPile( screen, layout.center, lastCard );
+
     drawPlayerHand( &screen, &p );
 
-    renderScreen(&screen);
+    renderScreen( &screen );
 
     return 0;
 }
