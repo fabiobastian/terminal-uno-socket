@@ -180,10 +180,10 @@ void drawZoneBorder( Screen *screen, Zone layout ) {
             }
 			break;
         case ZONE_BOTTOM:
-            for (int px = x; px < x + width; px++) {
-                setPixel(screen, px, y, '-');
-           }
-			break;
+            for ( int px = x; px < x + width; px++ ) {
+                setPixel( screen, px, y, '-' );
+            }
+		    break;
 	}
 }
 
