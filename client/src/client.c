@@ -24,7 +24,9 @@
 #define MIN_SCREEN_HEIGHT 50
 #define VERTICAL_MARGIN   10
 #define MIN_SCREEN_WIDTH  200
-
+#define SIDE_WIDTH        15
+#define TOP_HEIGHT        10
+#define BOTTOM_HEIGHT     10
 
 /**
  * ============================================================================
@@ -161,32 +163,103 @@ void renderScreen( Screen *screen ) {
 }
 
 
-void drawZone( Screen *screen) {
+void drawZoneBorder( Screen *screen, Zone layout ) {
+	int x = layout.bounds.x;
+	int y = layout.bounds.y;
+	int width = layout.bounds.width;
+	int height = layout.bounds.height;
+
+	printf("x = %d y = %d width = %d height = %d\n", x,y,width, height);
+
+	switch( layout.zone ) {
+		case ZONE_TOP:
+			for ( int x = x; x < width - 1; x++ ) {
+				setPixel( screen, x, height, '-' );
+			}
+			break;
+		case ZONE_BOTTOM:
+		 for (int px = x; px < x + width; px++) {
+                setPixel(screen, px, y + height - 1, '-');
+            }
+			break;
+	}
+}
+
+
+void drawBoard( Screen *screen, BoardLayout layout ) {
 	const float verticalPadding   = 0.80;
 	const float horizontalPadding = 0.90;
 
     int width  = screen->width;
     int height = screen->height;
 
-    // Top
-    for ( int x = 1; x < width - 1; x++ ) {
-        setPixel( screen, x, height - ( height * verticalPadding ), '-' );
-    }
-
-    // Bottom
-    for ( int x = 1; x < width - 1; x++ ) {
-        setPixel( screen, x, height - ( height * 0.20 ), '-' );
-    }
+	drawZoneBorder( screen, layout.top );
+	drawZoneBorder( screen, layout.bottom );
 
     // Right
     for ( int y = 1; y < height-1; y++ ) {
         setPixel( screen, width - ( width * horizontalPadding ), y, '|' );
     }
+}
 
-    // Left
-    for ( int y = 1; y < height-1; y++ ) {
-        setPixel( screen, width - ( width * 0.10 ), y, '|' );
-    }
+
+BoardLayout createBoardLayout( Screen screen ) {
+    BoardLayout layout;
+
+    int centerWidth = screen.width - ( 2 * SIDE_WIDTH );
+    int centerHeight = screen.height - TOP_HEIGHT - BOTTOM_HEIGHT;
+
+    layout.top = (Zone) {
+        .zone = ZONE_TOP,
+        .bounds = {
+            .x = 0,
+            .y = 0,
+            .width = screen.width,
+            .height = TOP_HEIGHT
+        }
+    };
+
+    layout.bottom = (Zone) {
+        .zone = ZONE_BOTTOM,
+        .bounds = {
+            .x = 0,
+            .y = screen.height - BOTTOM_HEIGHT,
+            .width = screen.width,
+            .height = BOTTOM_HEIGHT
+        }
+    };
+
+    layout.left = (Zone) {
+        .zone = ZONE_LEFT,
+        .bounds = {
+            .x = 0,
+            .y = TOP_HEIGHT,
+            .width = SIDE_WIDTH,
+            .height = centerHeight
+        }
+    };
+
+    layout.right = (Zone) {
+        .zone = ZONE_RIGHT,
+        .bounds = {
+            .x = screen.width - SIDE_WIDTH,
+            .y = TOP_HEIGHT,
+            .width = SIDE_WIDTH,
+            .height = centerHeight
+        }
+    };
+
+    layout.center = (Zone) {
+        .zone = ZONE_CENTER,
+        .bounds = {
+            .x = SIDE_WIDTH,
+            .y = TOP_HEIGHT,
+            .width = centerWidth,
+            .height = centerHeight
+        }
+    };
+
+    return layout;
 }
 
 
@@ -197,9 +270,6 @@ int main() {
 	 * Setup and screen validation
 	 */
 	{
-		//printf( "Screen height: %d\n", screen.height );
-		//printf( "Screen width: %d\n", screen.width );
-
 		if ( screen.height  < ( MIN_SCREEN_HEIGHT - VERTICAL_MARGIN ) ) {
 			printf( "[ERROR]: Screen height should be at least %d but was %d.\n", MIN_SCREEN_HEIGHT, screen.height );
 			return 1;
@@ -211,11 +281,13 @@ int main() {
 		}
 	}
 
+	BoardLayout layout = createBoardLayout(screen);
+
     clearScreen(&screen);
 
     drawBoardBorder(&screen);
 
-	drawZone(&screen);
+	drawBoard(&screen, layout);
 
     renderScreen(&screen);
 
