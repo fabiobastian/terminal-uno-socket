@@ -16,6 +16,7 @@
 #include <assert.h>
 #include <stdlib.h>
 
+
 /** 
  * ============================================================================
  * Constants
@@ -28,6 +29,7 @@
 #define TOP_HEIGHT        10
 #define BOTTOM_HEIGHT     10
 
+
 /**
  * ============================================================================
  * Structs
@@ -38,6 +40,53 @@ typedef struct {
 	int height;
 	char *buffer;
 } Screen;
+
+
+typedef struct {
+    int x;
+    int y;
+    int width;
+    int height;
+} Rectangle;
+
+
+typedef enum {
+    ZONE_TOP,
+    ZONE_RIGHT,
+    ZONE_LEFT,
+    ZONE_BOTTOM,
+    ZONE_CENTER
+} ZoneType;
+
+
+typedef struct {
+    Rectangle bounds;
+    ZoneType zone;
+} Zone;
+
+
+typedef struct {
+    Zone top;
+    Zone right;
+    Zone bottom;
+    Zone left;
+    Zone center;
+} BoardLayout;
+
+
+typedef struct {
+    char      value;
+    char      symbol;
+} Card;
+
+
+typedef struct {
+    int   id;
+    Zone  zone;
+    Card *cards;
+    int  cardCount;
+} Player;
+
 
 // @IMPROVE(nathan): so funciona no linux esse carinha aqui, depois preciso encontrar uma
 // forma melhor de fazer ele ser dinamico, usando alguma variavel na inicializacao, etc.
@@ -58,38 +107,6 @@ Screen getScreenSize() {
 	s.buffer = NULL;
 	return s;
 }
-
-
-/**
- * Layout Section
- */
-typedef struct {
-    int x;
-    int y;
-    int width;
-    int height;
-} Rectangle;
-
-typedef enum {
-    ZONE_TOP,
-    ZONE_RIGHT,
-    ZONE_LEFT,
-    ZONE_BOTTOM,
-    ZONE_CENTER
-} ZoneType;
-
-typedef struct {
-    Rectangle bounds;
-    ZoneType zone;
-} Zone;
-
-typedef struct {
-    Zone top;
-    Zone right;
-    Zone bottom;
-    Zone left;
-    Zone center;
-} BoardLayout;
 
 
 /**
@@ -221,7 +238,7 @@ BoardLayout createBoardLayout( Screen screen ) {
         .bounds = {
             .x = 1,
             .y = screen.height - BOTTOM_HEIGHT,
-            .width = screen.width - 1,
+            .width = screen.width - 2,
             .height = BOTTOM_HEIGHT
         }
     };
@@ -260,6 +277,56 @@ BoardLayout createBoardLayout( Screen screen ) {
 }
 
 
+void drawCard(
+    Screen *screen,
+    Zone zone,
+    Card card,
+    int paddingX,
+    int paddingY
+) {
+    const int MAX_CARD_LENGTH = 5;
+
+    int maxHeight = zone.bounds.height - (paddingY * 2);
+
+    // symbol
+    setPixel( screen, ( paddingX + ( MAX_CARD_LENGTH / 2 ) ), ( paddingY + 2 ), '!' );
+
+    // horizontal
+    for (int x = 0; x < MAX_CARD_LENGTH; ++x) {
+        int posX = paddingX + x;
+
+        if (x == 0 || x + 1 == MAX_CARD_LENGTH) {
+            setPixel(screen, posX, paddingY, '+');
+            setPixel(screen, posX, maxHeight, '+');
+        } else {
+            setPixel(screen, posX, paddingY, '-');
+            setPixel(screen, posX, maxHeight, '-');
+        }
+    }
+
+    // vertical
+    for (int y = paddingY + 1; y < maxHeight; ++y) {
+        setPixel(screen, paddingX, y, '|');
+        setPixel(screen, paddingX + MAX_CARD_LENGTH - 1, y, '|');
+    }
+}
+
+
+void drawPlayerHand( Screen *screen, Player *p ) {
+    int paddingY = p->zone.bounds.height * 0.2;
+    int paddingX = p->zone.bounds.width  * 0.1;
+
+    const int CARD_WIDTH = 5;
+    const int CARD_GAP   = 2;
+
+    for ( int i = 0; i < p->cardCount; ++i ) {
+        int cardX = paddingX + i * ( CARD_WIDTH + CARD_GAP );
+
+        drawCard( screen, p->zone, p->cards[i], cardX, paddingY );
+    }
+}
+
+
 int main() {
 	Screen screen = getScreenSize();
 
@@ -286,7 +353,31 @@ int main() {
 
 	drawBoard(&screen, layout);
 
+    Card cards[] = {
+        {
+            .value = '1',
+            .symbol = 'G'
+        },
+        {
+            .value = '1',
+            .symbol = 'G'
+        },
+        {
+            .value = '1',
+            .symbol = 'G'
+        },
+    };
+
+    Player p = {
+        .id = 1,
+        .zone = layout.top,
+        .cards = cards,
+        .cardCount = 3
+    };
+
+    drawPlayerHand( &screen, &p );
+
     renderScreen(&screen);
 
-	return 0;
+    return 0;
 }
