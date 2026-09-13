@@ -16,6 +16,8 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <termios.h>
+#include <unistd.h>
 
 
 /**
@@ -106,7 +108,60 @@ typedef struct {
     Zone  zone;
     Card *cards;
     int  cardCount;
+    int selectedCard;
 } Player;
+
+
+typedef enum {
+    INPUT_NONE,
+    INPUT_UP,
+    INPUT_DOWN,
+    INPUT_LEFT,
+    INPUT_RIGHT,
+    INPUT_ENTER,
+    INPUT_ESCAPE
+} Input;
+
+
+struct termios original;
+
+
+void enableRawMode() {
+    tcgetattr( STDIN_FILENO, &original );
+
+    struct termios raw = original;
+
+    raw.c_lflag &= ~( ICANON | ECHO );
+
+    tcsetattr( STDIN_FILENO, TCSAFLUSH, &raw );
+}
+
+void disableRawMode() {
+    tcsetattr( STDIN_FILENO, TCSAFLUSH, &original );
+}
+
+
+Input readInput() {
+    int c = getchar();
+
+    if ( c == 27 ) {
+        if ( getchar() == '[' ) {
+            switch ( getchar() ) {
+                case 'A': return INPUT_UP;
+                case 'B': return INPUT_DOWN;
+                case 'C': return INPUT_RIGHT;
+                case 'D': return INPUT_LEFT;
+            }
+        }
+
+        return INPUT_ESCAPE;
+    }
+
+    if ( c == '\n' )
+        return INPUT_ENTER;
+
+    return INPUT_NONE;
+}
 
 
 // @IMPROVE(nathan): so funciona no linux esse carinha aqui, depois preciso encontrar uma
@@ -375,38 +430,43 @@ BoardLayout createBoardLayout( Screen screen ) {
 }
 
 
-void drawCard( Screen *screen, Card card, int x, int y ) {
-    int bottom = y + CARD_HEIGHT - 1;
+void drawCard( Screen *screen, Card card, int x, int y, int isSelected ) {
+    int  bottom            = y + CARD_HEIGHT - 1;
+    char *verticalBorder   = isSelected == 0 ? "│" : "║";
+    char *horizontalBorder = isSelected == 0 ? "─" : "═";
+    char *leftBorder       = isSelected == 0 ? "╭" : "╔";
+    char *rightBorder      = isSelected == 0 ? "╯" : "╝";
 
     // symbol
-    setPixelChar( screen, x + (CARD_WIDTH / 2), y + 2, card.symbol );
+    setPixelChar( screen, x + ( CARD_WIDTH / 2 ), y + 2, card.symbol );
 
     // horizontal (bordas)
-    for (int i = 0; i < CARD_WIDTH; ++i) {
+    for ( int i = 0; i < CARD_WIDTH; ++i ) {
         int posX = x + i;
         if ( i == 0 ) {
-            setPixel( screen, posX, y, "╭" );
+            setPixel( screen, posX, y, leftBorder);
         } else if ( i + 1 == CARD_WIDTH ) {
-            setPixel( screen, posX, bottom, "╯" );
+            setPixel( screen, posX, bottom, rightBorder );
         } else {
-            setPixel( screen, posX, y, "─" );
-            setPixel( screen, posX, bottom, "─" );
+            setPixel( screen, posX, y, horizontalBorder );
+            setPixel( screen, posX, bottom, horizontalBorder );
         }
     }
 
     // vertical (bordas)
-    for (int py = y + 1; py < bottom; ++py) {
-        setPixel(screen, x, py, "│");
-        setPixel(screen, x + CARD_WIDTH - 1, py, "│");
+    for ( int py = y + 1; py < bottom; ++py ) {
+        setPixel( screen, x, py, verticalBorder );
+        setPixel( screen, x + CARD_WIDTH - 1, py, verticalBorder );
     }
 
     // preenchimento do miolo
-    for (int py = y + 1; py < bottom; ++py) {
-        for (int px = x + 1; px < x + CARD_WIDTH - 1; ++px) {
+    for ( int py = y + 1; py < bottom; ++py ) {
+        for ( int px = x + 1; px < x + CARD_WIDTH - 1; ++px ) {
             setBackground( screen, px, py, card.color );
         }
     }
 }
+
 
 void drawPlayerHand( Screen *screen, Player *p ) {
     Zone zone = p->zone;
@@ -417,15 +477,17 @@ void drawPlayerHand( Screen *screen, Player *p ) {
 
     for ( int i = 0; i < p->cardCount; ++i ) {
         int cardX = paddingX + i * ( CARD_WIDTH + CARD_GAP );
-        drawCard( screen, p->cards[i], cardX, paddingY );
+        int isSelected = ( i == p->selectedCard );
+        drawCard( screen, p->cards[i], cardX, paddingY, isSelected );
     }
 }
+
 
 void drawDiscardPile( Screen *screen, Zone zone, Card card ) {
     int x = zone.bounds.x + (zone.bounds.width  - CARD_WIDTH)  / 2;
     int y = zone.bounds.y + (zone.bounds.height - CARD_HEIGHT) / 2;
 
-    drawCard( screen, card, x, y );
+    drawCard( screen, card, x, y, 0 );
 }
 
 
@@ -433,32 +495,32 @@ void drawCardDeck( Screen screen, Zone zone, Card card ) {
     //TODO implement
 }
 
+Card lastCard = {
+    .value  = '1',
+    .symbol = '1',
+    .color  = COLOR_RED
+};
 
-int main() {
-    Card lastCard = {
+Card cards[] = {
+    {
         .value  = '1',
         .symbol = '1',
         .color  = COLOR_RED
-    };
+    },
+    {
+        .value  = '1',
+        .symbol = '2',
+        .color  = COLOR_GREEN
+    },
+    {
+        .value  = '1',
+        .symbol = '7',
+        .color  = COLOR_BLUE
+    },
+};
 
-    Card cards[] = {
-        {
-            .value  = '1',
-            .symbol = '1',
-            .color  = COLOR_RED
-        },
-        {
-            .value  = '1',
-            .symbol = '2',
-            .color  = COLOR_GREEN
-        },
-        {
-            .value  = '1',
-            .symbol = '7',
-            .color  = COLOR_BLUE
-        },
-    };
 
+int main() {
 	Screen screen = getScreenSize();
 
 	/**
@@ -477,25 +539,40 @@ int main() {
 	}
 
 	BoardLayout layout = createBoardLayout( screen );
-
     Player p = {
         .id = 1,
         .zone = layout.top,
         .cards = cards,
-        .cardCount = 3
+        .cardCount = 3,
+        .selectedCard = 0
     };
 
-    clearScreen( &screen );
+    int running = 1;
+    while( running ) {
+        clearScreen( &screen );
 
-    drawBoardBorder( &screen );
+        drawBoardBorder( &screen );
 
-    drawBoard( &screen, layout );
+        drawBoard( &screen, layout );
 
-    drawDiscardPile( &screen, layout.center, lastCard );
+        drawDiscardPile( &screen, layout.center, lastCard );
 
-    drawPlayerHand( &screen, &p );
+        drawPlayerHand( &screen, &p );
 
-    renderScreen( &screen );
+        renderScreen( &screen );
+
+        enableRawMode();
+        Input input = readInput();
+        disableRawMode();
+
+        if ( input == INPUT_RIGHT && p.selectedCard < p.cardCount ) {
+            p.selectedCard++;
+        }
+        if ( input == INPUT_LEFT && p.selectedCard > 0 ) {
+            p.selectedCard--;
+        }
+
+    }
 
     return 0;
 }
