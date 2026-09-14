@@ -8,6 +8,7 @@ typedef enum {
     VERDE,
     AZUL,
     PRETO
+
 } Cor;
 
 typedef struct {
