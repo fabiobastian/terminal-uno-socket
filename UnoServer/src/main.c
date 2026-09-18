@@ -14,13 +14,8 @@
 int inicializarWinsock(void) {
     WSADATA wsaData;
 
-    if (WSAStartup(
-            MAKEWORD(2, 2),
-            &wsaData
-        ) != 0) {
-        printf(
-            "Erro ao inicializar o Winsock.\n"
-        );
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+        printf("Erro ao inicializar o Winsock.\n");
 
         return -1;
     }
@@ -30,14 +25,11 @@ int inicializarWinsock(void) {
 
 
 int inicializarServer(Server *server) {
-    server->serverSocket =
-            INVALID_SOCKET;
+    server->serverSocket = INVALID_SOCKET;
 
-    server->playerSockets[0] =
-            INVALID_SOCKET;
+    server->playerSockets[0] = INVALID_SOCKET;
 
-    server->playerSockets[1] =
-            INVALID_SOCKET;
+    server->playerSockets[1] = INVALID_SOCKET;
 
     server->running = 1;
 
@@ -50,12 +42,7 @@ int inicializarServer(Server *server) {
 }
 
 
-int iniciarThreads(
-    Server *server,
-    HANDLE *acceptor,
-    HANDLE *worker,
-    HANDLE *writer
-) {
+int iniciarThreads(Server *server, HANDLE *acceptor, HANDLE *worker, HANDLE *writer) {
     *acceptor = CreateThread(
         NULL,
         0,
@@ -66,9 +53,7 @@ int iniciarThreads(
     );
 
     if (*acceptor == NULL) {
-        printf(
-            "Erro ao criar thread acceptor.\n"
-        );
+        printf("Erro ao criar thread acceptor.\n");
 
         return -1;
     }
@@ -84,16 +69,11 @@ int iniciarThreads(
     );
 
     if (*worker == NULL) {
-        printf(
-            "Erro ao criar thread worker.\n"
-        );
+        printf("Erro ao criar thread worker.\n");
 
         server_request_shutdown(server);
 
-        WaitForSingleObject(
-            *acceptor,
-            INFINITE
-        );
+        WaitForSingleObject(*acceptor, INFINITE);
 
         CloseHandle(*acceptor);
 
@@ -111,21 +91,13 @@ int iniciarThreads(
     );
 
     if (*writer == NULL) {
-        printf(
-            "Erro ao criar thread writer.\n"
-        );
+        printf("Erro ao criar thread writer.\n");
 
         server_request_shutdown(server);
 
-        WaitForSingleObject(
-            *acceptor,
-            INFINITE
-        );
+        WaitForSingleObject(*acceptor, INFINITE);
 
-        WaitForSingleObject(
-            *worker,
-            INFINITE
-        );
+        WaitForSingleObject(*worker,INFINITE);
 
         CloseHandle(*acceptor);
         CloseHandle(*worker);
@@ -176,12 +148,7 @@ int main(void) {
      * ========================================================
      */
 
-    if (iniciarThreads(
-            &server,
-            &acceptor,
-            &worker,
-            &writer
-        ) != 0) {
+    if (iniciarThreads(&server, &acceptor, &worker, &writer) != 0) {
         server_shutdown(&server);
 
         WSACleanup();
@@ -203,22 +170,15 @@ int main(void) {
      */
 
     printf("\n");
-    printf(
-        "Servidor iniciado.\n"
-    );
+    printf("Servidor iniciado.\n");
 
-    printf(
-        "Digite 'q' e ENTER para encerrar.\n"
-    );
+    printf("Digite 'q' e ENTER para encerrar.\n");
 
 
     while (server.running) {
         int caractere = getchar();
 
-        if (
-            caractere == 'q' ||
-            caractere == 'Q'
-        ) {
+        if (caractere == 'q' || caractere == 'Q') {
             server_request_shutdown(
                 &server
             );
@@ -234,20 +194,11 @@ int main(void) {
      * ========================================================
      */
 
-    WaitForSingleObject(
-        acceptor,
-        INFINITE
-    );
+    WaitForSingleObject(acceptor, INFINITE);
 
-    WaitForSingleObject(
-        worker,
-        INFINITE
-    );
+    WaitForSingleObject(worker,INFINITE);
 
-    WaitForSingleObject(
-        writer,
-        INFINITE
-    );
+    WaitForSingleObject(writer,INFINITE);
 
 
     /*
@@ -267,9 +218,7 @@ int main(void) {
      * ========================================================
      */
 
-    server_shutdown(
-        &server
-    );
+    server_shutdown(&server);
 
 
     /*

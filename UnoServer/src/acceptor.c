@@ -15,9 +15,7 @@ DWORD WINAPI acceptorThread(LPVOID arg)
     }
 
 
-    printf(
-        "[ACCEPTOR] Thread iniciada.\n"
-    );
+    printf("[ACCEPTOR] Thread iniciada.\n");
 
 
     /*
@@ -26,40 +24,29 @@ DWORD WINAPI acceptorThread(LPVOID arg)
      * ========================================================
      */
 
-    printf(
-        "[ACCEPTOR] Aguardando jogador 1...\n"
-    );
+    printf("[ACCEPTOR] Aguardando jogador 1...\n");
 
 
-    server->playerSockets[0] =
-        accept(
+    server->playerSockets[0] = accept(
             server->serverSocket,
             NULL,
             NULL
         );
 
 
-    if (
-        server->playerSockets[0] ==
-        INVALID_SOCKET
-    ) {
+    if (server->playerSockets[0] ==INVALID_SOCKET) {
 
         if (!server->running) {
             return 0;
         }
 
-        printf(
-            "[ACCEPTOR] Erro ao aceitar "
-            "jogador 1.\n"
-        );
+        printf("[ACCEPTOR] Erro ao aceitar jogador 1.\n");
 
         return 1;
     }
 
 
-    printf(
-        "[ACCEPTOR] Jogador 1 conectado.\n"
-    );
+    printf("[ACCEPTOR] Jogador 1 conectado.\n");
 
 
     if (!server->running) {
@@ -73,40 +60,29 @@ DWORD WINAPI acceptorThread(LPVOID arg)
      * ========================================================
      */
 
-    printf(
-        "[ACCEPTOR] Aguardando jogador 2...\n"
-    );
+    printf("[ACCEPTOR] Aguardando jogador 2...\n");
 
 
-    server->playerSockets[1] =
-        accept(
+    server->playerSockets[1] = accept(
             server->serverSocket,
             NULL,
             NULL
         );
 
 
-    if (
-        server->playerSockets[1] ==
-        INVALID_SOCKET
-    ) {
+    if (server->playerSockets[1] == INVALID_SOCKET) {
 
         if (!server->running) {
             return 0;
         }
 
-        printf(
-            "[ACCEPTOR] Erro ao aceitar "
-            "jogador 2.\n"
-        );
+        printf("[ACCEPTOR] Erro ao aceitar jogador 2.\n");
 
         return 1;
     }
 
 
-    printf(
-        "[ACCEPTOR] Jogador 2 conectado.\n"
-    );
+    printf("[ACCEPTOR] Jogador 2 conectado.\n");
 
 
     /*
@@ -115,16 +91,12 @@ DWORD WINAPI acceptorThread(LPVOID arg)
      * ========================================================
      */
 
-    ListenerArgs *player1Args =
-        malloc(sizeof(ListenerArgs));
+    ListenerArgs *player1Args = malloc(sizeof(ListenerArgs));
 
 
     if (player1Args == NULL) {
 
-        printf(
-            "[ACCEPTOR] Erro ao alocar memoria "
-            "para jogador 1.\n"
-        );
+        printf("[ACCEPTOR] Erro ao alocar memoria para jogador 1.\n");
 
         return 1;
     }
@@ -132,15 +104,12 @@ DWORD WINAPI acceptorThread(LPVOID arg)
 
     player1Args->playerId = 0;
 
-    player1Args->socket =
-        server->playerSockets[0];
+    player1Args->socket = server->playerSockets[0];
 
-    player1Args->server =
-        server;
+    player1Args->server = server;
 
 
-    HANDLE player1Listener =
-        CreateThread(
+    HANDLE player1Listener = CreateThread(
             NULL,
             0,
             listenerThread,
@@ -152,10 +121,7 @@ DWORD WINAPI acceptorThread(LPVOID arg)
 
     if (player1Listener == NULL) {
 
-        printf(
-            "[ACCEPTOR] Erro ao criar listener "
-            "do jogador 1.\n"
-        );
+        printf("[ACCEPTOR] Erro ao criar listener do jogador 1.\n");
 
         free(player1Args);
 
@@ -169,33 +135,18 @@ DWORD WINAPI acceptorThread(LPVOID arg)
      * ========================================================
      */
 
-    ListenerArgs *player2Args =
-        malloc(sizeof(ListenerArgs));
+    ListenerArgs *player2Args = malloc(sizeof(ListenerArgs));
 
 
     if (player2Args == NULL) {
 
-        printf(
-            "[ACCEPTOR] Erro ao alocar memoria "
-            "para jogador 2.\n"
-        );
+        printf("[ACCEPTOR] Erro ao alocar memoria para jogador 2.\n");
 
+        server_request_shutdown(server);
 
-        server_request_shutdown(
-            server
-        );
+        WaitForSingleObject(player1Listener, INFINITE);
 
-
-        WaitForSingleObject(
-            player1Listener,
-            INFINITE
-        );
-
-
-        CloseHandle(
-            player1Listener
-        );
-
+        CloseHandle(player1Listener);
 
         return 1;
     }
@@ -203,15 +154,11 @@ DWORD WINAPI acceptorThread(LPVOID arg)
 
     player2Args->playerId = 1;
 
-    player2Args->socket =
-        server->playerSockets[1];
+    player2Args->socket = server->playerSockets[1];
 
-    player2Args->server =
-        server;
+    player2Args->server = server;
 
-
-    HANDLE player2Listener =
-        CreateThread(
+    HANDLE player2Listener = CreateThread(
             NULL,
             0,
             listenerThread,
@@ -220,41 +167,23 @@ DWORD WINAPI acceptorThread(LPVOID arg)
             NULL
         );
 
-
     if (player2Listener == NULL) {
 
-        printf(
-            "[ACCEPTOR] Erro ao criar listener "
-            "do jogador 2.\n"
-        );
-
+        printf("[ACCEPTOR] Erro ao criar listener do jogador 2.\n");
 
         free(player2Args);
 
+        server_request_shutdown(server);
 
-        server_request_shutdown(
-            server
-        );
+        WaitForSingleObject(player1Listener,INFINITE);
 
-
-        WaitForSingleObject(
-            player1Listener,
-            INFINITE
-        );
-
-
-        CloseHandle(
-            player1Listener
-        );
-
+        CloseHandle(player1Listener);
 
         return 1;
     }
 
 
-    printf(
-        "[ACCEPTOR] Dois listeners iniciados.\n"
-    );
+    printf("[ACCEPTOR] Dois listeners iniciados.\n");
 
 
     /*
@@ -268,7 +197,6 @@ DWORD WINAPI acceptorThread(LPVOID arg)
         player2Listener
     };
 
-
     WaitForMultipleObjects(
         2,
         listeners,
@@ -277,19 +205,12 @@ DWORD WINAPI acceptorThread(LPVOID arg)
     );
 
 
-    CloseHandle(
-        player1Listener
-    );
+    CloseHandle(player1Listener);
 
-    CloseHandle(
-        player2Listener
-    );
+    CloseHandle(player2Listener);
 
 
-    printf(
-        "[ACCEPTOR] Listeners finalizados.\n"
-    );
-
+    printf("[ACCEPTOR] Listeners finalizados.\n");
 
     return 0;
 }

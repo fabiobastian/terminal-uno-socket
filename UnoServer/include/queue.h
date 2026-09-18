@@ -43,19 +43,11 @@ typedef struct {
 int requestQueueInit(RequestQueue *queue);
 void requestQueueDestroy(RequestQueue *queue);
 
-int requestQueuePush(
-    RequestQueue *queue,
-    Solicitacao request
-);
+int requestQueuePush(RequestQueue *queue, Solicitacao request);
 
-int requestQueuePop(
-    RequestQueue *queue,
-    Solicitacao *request
-);
+int requestQueuePop(RequestQueue *queue, Solicitacao *request);
 
-void requestQueueShutdown(
-    RequestQueue *queue
-);
+void requestQueueShutdown(RequestQueue *queue);
 
 
 /* Response Queue */
@@ -63,18 +55,10 @@ void requestQueueShutdown(
 int responseQueueInit(ResponseQueue *queue);
 void responseQueueDestroy(ResponseQueue *queue);
 
-int responseQueuePush(
-    ResponseQueue *queue,
-    Mensagem response
-);
+int responseQueuePush(ResponseQueue *queue, Mensagem response);
 
-int responseQueuePop(
-    ResponseQueue *queue,
-    Mensagem *response
-);
+int responseQueuePop(ResponseQueue *queue, Mensagem *response);
 
-void responseQueueShutdown(
-    ResponseQueue *queue
-);
+void responseQueueShutdown(ResponseQueue *queue);
 
 #endif

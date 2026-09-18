@@ -4,8 +4,7 @@
  * REQUEST QUEUE
  * ============================================================ */
 
-int requestQueueInit(RequestQueue *queue)
-{
+int requestQueueInit(RequestQueue *queue) {
     if (queue == NULL) {
         return -1;
     }
@@ -17,20 +16,15 @@ int requestQueueInit(RequestQueue *queue)
 
     InitializeCriticalSection(&queue->mutex);
 
-    InitializeConditionVariable(
-        &queue->notEmpty
-    );
+    InitializeConditionVariable(&queue->notEmpty);
 
-    InitializeConditionVariable(
-        &queue->notFull
-    );
+    InitializeConditionVariable(&queue->notFull);
 
     return 0;
 }
 
 
-void requestQueueDestroy(RequestQueue *queue)
-{
+void requestQueueDestroy(RequestQueue *queue) {
     if (queue == NULL) {
         return;
     }
@@ -39,21 +33,14 @@ void requestQueueDestroy(RequestQueue *queue)
 }
 
 
-int requestQueuePush(
-    RequestQueue *queue,
-    Solicitacao request
-)
-{
+int requestQueuePush(RequestQueue *queue, Solicitacao request) {
     if (queue == NULL) {
         return -1;
     }
 
     EnterCriticalSection(&queue->mutex);
 
-    while (
-        queue->count == QUEUE_CAPACITY &&
-        !queue->shutdown
-    ) {
+    while (queue->count == QUEUE_CAPACITY && !queue->shutdown) {
         SleepConditionVariableCS(
             &queue->notFull,
             &queue->mutex,
@@ -68,14 +55,11 @@ int requestQueuePush(
 
     queue->items[queue->rear] = request;
 
-    queue->rear =
-        (queue->rear + 1) % QUEUE_CAPACITY;
+    queue->rear = (queue->rear + 1) % QUEUE_CAPACITY;
 
     queue->count++;
 
-    WakeConditionVariable(
-        &queue->notEmpty
-    );
+    WakeConditionVariable(&queue->notEmpty);
 
     LeaveCriticalSection(&queue->mutex);
 
@@ -83,24 +67,14 @@ int requestQueuePush(
 }
 
 
-int requestQueuePop(
-    RequestQueue *queue,
-    Solicitacao *request
-)
-{
-    if (
-        queue == NULL ||
-        request == NULL
-    ) {
+int requestQueuePop(RequestQueue *queue, Solicitacao *request) {
+    if (queue == NULL || request == NULL) {
         return -1;
     }
 
     EnterCriticalSection(&queue->mutex);
 
-    while (
-        queue->count == 0 &&
-        !queue->shutdown
-    ) {
+    while (queue->count == 0 && !queue->shutdown) {
         SleepConditionVariableCS(
             &queue->notEmpty,
             &queue->mutex,
@@ -108,24 +82,18 @@ int requestQueuePop(
         );
     }
 
-    if (
-        queue->count == 0 &&
-        queue->shutdown
-    ) {
+    if (queue->count == 0 && queue->shutdown) {
         LeaveCriticalSection(&queue->mutex);
         return -1;
     }
 
     *request = queue->items[queue->front];
 
-    queue->front =
-        (queue->front + 1) % QUEUE_CAPACITY;
+    queue->front = (queue->front + 1) % QUEUE_CAPACITY;
 
     queue->count--;
 
-    WakeConditionVariable(
-        &queue->notFull
-    );
+    WakeConditionVariable(&queue->notFull);
 
     LeaveCriticalSection(&queue->mutex);
 
@@ -133,10 +101,7 @@ int requestQueuePop(
 }
 
 
-void requestQueueShutdown(
-    RequestQueue *queue
-)
-{
+void requestQueueShutdown(RequestQueue *queue) {
     if (queue == NULL) {
         return;
     }
@@ -145,13 +110,9 @@ void requestQueueShutdown(
 
     queue->shutdown = 1;
 
-    WakeAllConditionVariable(
-        &queue->notEmpty
-    );
+    WakeAllConditionVariable(&queue->notEmpty);
 
-    WakeAllConditionVariable(
-        &queue->notFull
-    );
+    WakeAllConditionVariable(&queue->notFull);
 
     LeaveCriticalSection(&queue->mutex);
 }
@@ -161,8 +122,7 @@ void requestQueueShutdown(
  * RESPONSE QUEUE
  * ============================================================ */
 
-int responseQueueInit(ResponseQueue *queue)
-{
+int responseQueueInit(ResponseQueue *queue) {
     if (queue == NULL) {
         return -1;
     }
@@ -174,20 +134,15 @@ int responseQueueInit(ResponseQueue *queue)
 
     InitializeCriticalSection(&queue->mutex);
 
-    InitializeConditionVariable(
-        &queue->notEmpty
-    );
+    InitializeConditionVariable(&queue->notEmpty);
 
-    InitializeConditionVariable(
-        &queue->notFull
-    );
+    InitializeConditionVariable(&queue->notFull);
 
     return 0;
 }
 
 
-void responseQueueDestroy(ResponseQueue *queue)
-{
+void responseQueueDestroy(ResponseQueue *queue) {
     if (queue == NULL) {
         return;
     }
@@ -196,21 +151,14 @@ void responseQueueDestroy(ResponseQueue *queue)
 }
 
 
-int responseQueuePush(
-    ResponseQueue *queue,
-    Mensagem response
-)
-{
+int responseQueuePush(ResponseQueue *queue, Mensagem response) {
     if (queue == NULL) {
         return -1;
     }
 
     EnterCriticalSection(&queue->mutex);
 
-    while (
-        queue->count == QUEUE_CAPACITY &&
-        !queue->shutdown
-    ) {
+    while (queue->count == QUEUE_CAPACITY && !queue->shutdown) {
         SleepConditionVariableCS(
             &queue->notFull,
             &queue->mutex,
@@ -225,14 +173,11 @@ int responseQueuePush(
 
     queue->items[queue->rear] = response;
 
-    queue->rear =
-        (queue->rear + 1) % QUEUE_CAPACITY;
+    queue->rear = (queue->rear + 1) % QUEUE_CAPACITY;
 
     queue->count++;
 
-    WakeConditionVariable(
-        &queue->notEmpty
-    );
+    WakeConditionVariable(&queue->notEmpty);
 
     LeaveCriticalSection(&queue->mutex);
 
@@ -240,24 +185,14 @@ int responseQueuePush(
 }
 
 
-int responseQueuePop(
-    ResponseQueue *queue,
-    Mensagem *response
-)
-{
-    if (
-        queue == NULL ||
-        response == NULL
-    ) {
+int responseQueuePop(ResponseQueue *queue, Mensagem *response) {
+    if (queue == NULL || response == NULL) {
         return -1;
     }
 
     EnterCriticalSection(&queue->mutex);
 
-    while (
-        queue->count == 0 &&
-        !queue->shutdown
-    ) {
+    while (queue->count == 0 && !queue->shutdown) {
         SleepConditionVariableCS(
             &queue->notEmpty,
             &queue->mutex,
@@ -265,24 +200,18 @@ int responseQueuePop(
         );
     }
 
-    if (
-        queue->count == 0 &&
-        queue->shutdown
-    ) {
+    if (queue->count == 0 && queue->shutdown) {
         LeaveCriticalSection(&queue->mutex);
         return -1;
     }
 
     *response = queue->items[queue->front];
 
-    queue->front =
-        (queue->front + 1) % QUEUE_CAPACITY;
+    queue->front = (queue->front + 1) % QUEUE_CAPACITY;
 
     queue->count--;
 
-    WakeConditionVariable(
-        &queue->notFull
-    );
+    WakeConditionVariable(&queue->notFull);
 
     LeaveCriticalSection(&queue->mutex);
 
@@ -290,10 +219,7 @@ int responseQueuePop(
 }
 
 
-void responseQueueShutdown(
-    ResponseQueue *queue
-)
-{
+void responseQueueShutdown(ResponseQueue *queue) {
     if (queue == NULL) {
         return;
     }
@@ -302,13 +228,9 @@ void responseQueueShutdown(
 
     queue->shutdown = 1;
 
-    WakeAllConditionVariable(
-        &queue->notEmpty
-    );
+    WakeAllConditionVariable(&queue->notEmpty);
 
-    WakeAllConditionVariable(
-        &queue->notFull
-    );
+    WakeAllConditionVariable(&queue->notFull);
 
     LeaveCriticalSection(&queue->mutex);
 }

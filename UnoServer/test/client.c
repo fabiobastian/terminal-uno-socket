@@ -18,12 +18,10 @@ int enviarTudo(
     SOCKET socket,
     const char *buffer,
     int tamanho
-)
-{
+) {
     int totalEnviado = 0;
 
     while (totalEnviado < tamanho) {
-
         int enviado = send(
             socket,
             buffer + totalEnviado,
@@ -41,9 +39,36 @@ int enviarTudo(
     return totalEnviado;
 }
 
+int recvAll(
+    SOCKET socket,
+    char *buffer,
+    int tamanho
+) {
+    int totalRecebido = 0;
 
-int main(void)
-{
+    while (totalRecebido < tamanho) {
+        int recebido = recv(
+            socket,
+            buffer + totalRecebido,
+            tamanho - totalRecebido,
+            0
+        );
+
+        if (recebido == 0) {
+            return 0;
+        }
+
+        if (recebido == SOCKET_ERROR) {
+            return -1;
+        }
+
+        totalRecebido += recebido;
+    }
+
+    return totalRecebido;
+}
+
+int main(void) {
     WSADATA wsaData;
 
     SOCKET socketCliente;
@@ -58,10 +83,9 @@ int main(void)
      */
 
     if (WSAStartup(
-        MAKEWORD(2, 2),
-        &wsaData
-    ) != 0) {
-
+            MAKEWORD(2, 2),
+            &wsaData
+        ) != 0) {
         printf(
             "Erro ao inicializar Winsock.\n"
         );
@@ -86,7 +110,6 @@ int main(void)
         socketCliente ==
         INVALID_SOCKET
     ) {
-
         printf(
             "Erro ao criar socket.\n"
         );
@@ -110,13 +133,13 @@ int main(void)
     );
 
     serverAddress.sin_family =
-        AF_INET;
+            AF_INET;
 
     serverAddress.sin_port =
-        htons(SERVER_PORT);
+            htons(SERVER_PORT);
 
     serverAddress.sin_addr.s_addr =
-        inet_addr(SERVER_IP);
+            inet_addr(SERVER_IP);
 
 
     /*
@@ -130,11 +153,10 @@ int main(void)
     );
 
     if (connect(
-        socketCliente,
-        (struct sockaddr *)&serverAddress,
-        sizeof(serverAddress)
-    ) == SOCKET_ERROR) {
-
+            socketCliente,
+            (struct sockaddr *) &serverAddress,
+            sizeof(serverAddress)
+        ) == SOCKET_ERROR) {
         printf(
             "Erro ao conectar. "
             "WSAError: %d\n",
@@ -172,7 +194,7 @@ int main(void)
     request.jogadorId = 0;
 
     request.acao =
-        ACAO_JOGAR_CARTA;
+            ACAO_JOGAR_CARTA;
 
     request.cartaId = 5;
 
@@ -204,11 +226,10 @@ int main(void)
      */
 
     if (enviarTudo(
-        socketCliente,
-        (const char *)&request,
-        sizeof(request)
-    ) < 0) {
-
+            socketCliente,
+            (const char *) &request,
+            sizeof(request)
+        ) < 0) {
         printf(
             "Erro ao enviar solicitacao. "
             "WSAError: %d\n",
@@ -225,6 +246,84 @@ int main(void)
 
     printf(
         "Solicitacao enviada!\n"
+    );
+
+
+    /*
+ * ========================================================
+ * RECEBER RESPOSTA
+ * ========================================================
+ */
+
+    Mensagem response;
+
+    int resultado = recvAll(
+        socketCliente,
+        (char *) &response,
+        sizeof(Mensagem)
+    );
+
+
+    if (resultado == 0) {
+        printf(
+            "Servidor desconectou.\n"
+        );
+
+        closesocket(socketCliente);
+        WSACleanup();
+
+        return EXIT_FAILURE;
+    }
+
+
+    if (resultado < 0) {
+        printf(
+            "Erro ao receber resposta. "
+            "WSAError: %d\n",
+            WSAGetLastError()
+        );
+
+        closesocket(socketCliente);
+        WSACleanup();
+
+        return EXIT_FAILURE;
+    }
+
+
+    printf(
+        "Resposta recebida!\n"
+    );
+
+    printf(
+        "  tipo: %d\n",
+        response.tipo
+    );
+
+    printf(
+        "  jogador: %d\n",
+        response.estado.jogador.id + 1
+    );
+
+    printf(
+        "  rodada: %d\n",
+        response.estado.partida.numeroRodada
+    );
+
+    printf(
+        "  sua vez: %s\n",
+        response.estado.partida.suaVez
+            ? "SIM"
+            : "NAO"
+    );
+
+    printf(
+        "  cartas do adversario: %d\n",
+        response.estado.partida.numeroCartasAdversario
+    );
+
+    printf(
+        "  adversario: %s\n",
+        response.estado.partida.nomeAdversario
     );
 
 

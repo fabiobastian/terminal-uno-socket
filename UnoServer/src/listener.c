@@ -15,12 +15,7 @@
  *     0    -> conexão encerrada
  *    -1    -> erro
  */
-static int recvAll(
-    SOCKET socket,
-    char *buffer,
-    int tamanho
-)
-{
+static int recvAll(SOCKET socket, char *buffer, int tamanho) {
     int totalRecebido = 0;
 
     while (totalRecebido < tamanho) {
@@ -50,18 +45,14 @@ static int recvAll(
 }
 
 
-DWORD WINAPI listenerThread(LPVOID arg)
-{
+DWORD WINAPI listenerThread(LPVOID arg) {
     ListenerArgs *args = (ListenerArgs *)arg;
 
     if (args == NULL) {
         return 1;
     }
 
-    printf(
-        "[LISTENER] Jogador %d conectado.\n",
-        args->playerId + 1
-    );
+    printf("[LISTENER] Jogador %d conectado.\n", args->playerId + 1);
 
 
     /*
@@ -117,10 +108,7 @@ DWORD WINAPI listenerThread(LPVOID arg)
 
         if (resultado == 0) {
 
-            printf(
-                "[LISTENER] Jogador %d desconectou.\n",
-                args->playerId + 1
-            );
+            printf("[LISTENER] Jogador %d desconectou.\n", args->playerId + 1);
 
             break;
         }
@@ -134,11 +122,7 @@ DWORD WINAPI listenerThread(LPVOID arg)
 
         if (resultado < 0) {
 
-            printf(
-                "[LISTENER] Erro ao receber dados "
-                "do jogador %d.\n",
-                args->playerId + 1
-            );
+            printf("[LISTENER] Erro ao receber dados do jogador %d.\n", args->playerId + 1);
 
             break;
         }
@@ -164,15 +148,9 @@ DWORD WINAPI listenerThread(LPVOID arg)
          * ====================================================
          */
 
-        if (requestQueuePush(
-            &args->server->requestQueue,
-            request
-        ) != 0) {
+        if (requestQueuePush(&args->server->requestQueue, request) != 0) {
 
-            printf(
-                "[LISTENER] Erro ao adicionar "
-                "request na fila.\n"
-            );
+            printf("[LISTENER] Erro ao adicionar request na fila.\n");
 
             break;
         }
@@ -184,9 +162,7 @@ DWORD WINAPI listenerThread(LPVOID arg)
          * Posteriormente isso poderá ser removido.
          */
 
-        printf(
-            "[LISTENER] Request recebida do jogador %d "
-            "(acao=%d, carta=%d).\n",
+        printf("[LISTENER] Request recebida do jogador %d (acao=%d, carta=%d).\n",
             request.jogadorId + 1,
             request.acao,
             request.cartaId
@@ -202,10 +178,7 @@ DWORD WINAPI listenerThread(LPVOID arg)
 
     closesocket(args->socket);
 
-    args->server->playerSockets[
-        args->playerId
-    ] = INVALID_SOCKET;
-
+    args->server->playerSockets[args->playerId] = INVALID_SOCKET;
 
     free(args);
 

@@ -22,12 +22,8 @@ typedef struct {
 
 int server_init(Server *server);
 
-void server_request_shutdown(
-    Server *server
-);
+void server_request_shutdown(Server *server);
 
-void server_shutdown(
-    Server *server
-);
+void server_shutdown(Server *server);
 
 #endif
