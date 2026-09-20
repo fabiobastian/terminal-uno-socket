@@ -185,6 +185,10 @@ DWORD WINAPI acceptorThread(LPVOID arg)
 
     printf("[ACCEPTOR] Dois listeners iniciados.\n");
 
+    if (server->gameStartedEvent != NULL) {
+
+        SetEvent(server->gameStartedEvent);
+    }
 
     /*
      * ========================================================

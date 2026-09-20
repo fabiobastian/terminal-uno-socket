@@ -5,6 +5,7 @@ set(CMAKE_C_STANDARD 11)
 
 add_executable(UnoServer
         src/acceptor.c
+        src/game.c
         src/listener.c
         src/main.c
         src/queue.c

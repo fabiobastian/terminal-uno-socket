@@ -17,6 +17,8 @@ typedef struct {
     RequestQueue requestQueue;
     ResponseQueue responseQueue;
 
+    HANDLE gameStartedEvent;
+
 } Server;
 
 

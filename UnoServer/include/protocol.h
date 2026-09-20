@@ -65,6 +65,7 @@ typedef struct {
  */
 
 typedef enum {
+    MSG_PARTIDA_INICIADA,
     MSG_ESTADO_JOGO,
     MSG_JOGADA_INVALIDA,
     MSG_PARTIDA_FINALIZADA,

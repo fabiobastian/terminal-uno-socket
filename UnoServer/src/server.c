@@ -20,6 +20,19 @@ int server_init(Server *server) {
         return -1;
     }
 
+    server->gameStartedEvent = CreateEvent(
+        NULL,
+        TRUE,
+        FALSE,
+        NULL
+    );
+
+    if (server->gameStartedEvent == NULL) {
+        printf("Erro ao criar evento da partida.\n");
+
+        return -1;
+    }
+
 
     server->serverSocket = socket(
         AF_INET,
@@ -99,6 +112,9 @@ void server_request_shutdown(Server *server) {
 
     server->running = 0;
 
+    if (server->gameStartedEvent != NULL) {
+        SetEvent(server->gameStartedEvent);
+    }
 
     /*
      * Acorda Worker e Writer caso estejam
@@ -147,6 +163,12 @@ void server_shutdown(Server *server) {
         return;
     }
 
+    if (server->gameStartedEvent != NULL) {
+
+        CloseHandle(server->gameStartedEvent);
+
+        server->gameStartedEvent = NULL;
+    }
 
     for (int i = 0; i < MAX_PLAYERS; i++) {
         if (server->playerSockets[i] != INVALID_SOCKET) {
