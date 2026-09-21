@@ -1,11 +1,3 @@
-//
-// Created by nathan.berger on 20/09/2026.
-//
-
-#ifndef TERMINAL_UNO_SOCKET_PROTOCOL_H
-#define TERMINAL_UNO_SOCKET_PROTOCOL_H
-
-#endif //TERMINAL_UNO_SOCKET_PROTOCOL_H
 #ifndef PROTOCOL_H
 #define PROTOCOL_H
 
@@ -73,6 +65,7 @@ typedef struct {
  */
 
 typedef enum {
+    MSG_PARTIDA_INICIADA,
     MSG_ESTADO_JOGO,
     MSG_JOGADA_INVALIDA,
     MSG_PARTIDA_FINALIZADA,
