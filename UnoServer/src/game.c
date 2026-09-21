@@ -6,8 +6,7 @@
 #include <time.h>
 
 
-void game_init(Jogo *jogo)
-{
+void game_init(Jogo *jogo){
     if (jogo == NULL) {
         return;
     }
@@ -23,12 +22,7 @@ void game_init(Jogo *jogo)
 }
 
 
-void game_adicionarJogador(
-    Jogo *jogo,
-    int jogadorId,
-    const char *nome
-)
-{
+void game_adicionarJogador(Jogo *jogo, int jogadorId, const char *nome) {
     if (jogo == NULL) {
         return;
     }
@@ -55,10 +49,7 @@ void game_adicionarJogador(
 }
 
 
-void game_criarBaralho(
-    Jogo *jogo
-)
-{
+void game_criarBaralho(Jogo *jogo) {
     if (jogo == NULL) {
         return;
     }
@@ -78,8 +69,7 @@ void game_criarBaralho(
 
         for (int numero = 0; numero <= 9; numero++) {
 
-            Carta *carta =
-                &jogo->baralho[jogo->topoBaralho];
+            Carta *carta = &jogo->baralho[jogo->topoBaralho];
 
             carta->id = id++;
             carta->cor = cores[cor];
@@ -97,10 +87,7 @@ void game_criarBaralho(
 }
 
 
-void game_embaralhar(
-    Jogo *jogo
-)
-{
+void game_embaralhar(Jogo *jogo) {
     if (jogo == NULL) {
         return;
     }
@@ -113,19 +100,14 @@ void game_embaralhar(
 
         Carta temp = jogo->baralho[i];
 
-        jogo->baralho[i] =
-            jogo->baralho[j];
+        jogo->baralho[i] = jogo->baralho[j];
 
-        jogo->baralho[j] =
-            temp;
+        jogo->baralho[j] = temp;
     }
 }
 
 
-void game_distribuirCartas(
-    Jogo *jogo
-)
-{
+void game_distribuirCartas(Jogo *jogo) {
     if (jogo == NULL) {
         return;
     }
@@ -135,28 +117,21 @@ void game_distribuirCartas(
         jogo->jogadores[i].qtdCartas = 0;
     }
 
-    for (int rodada = 0;
-         rodada < CARTAS_INICIAIS;
-         rodada++) {
+    for (int rodada = 0; rodada < CARTAS_INICIAIS; rodada++) {
 
-        for (int jogadorId = 0;
-             jogadorId < MAX_PLAYERS;
-             jogadorId++) {
+        for (int jogadorId = 0; jogadorId < MAX_PLAYERS; jogadorId++) {
 
             if (jogo->topoBaralho <= 0) {
                 return;
             }
 
-            Carta carta =
-                jogo->baralho[jogo->topoBaralho - 1];
+            Carta carta = jogo->baralho[jogo->topoBaralho - 1];
 
             jogo->topoBaralho--;
 
-            Jogador *jogador =
-                &jogo->jogadores[jogadorId];
+            Jogador *jogador = &jogo->jogadores[jogadorId];
 
-            jogador->cartas[jogador->qtdCartas] =
-                carta;
+            jogador->cartas[jogador->qtdCartas] = carta;
 
             jogador->qtdCartas++;
         }
@@ -164,19 +139,12 @@ void game_distribuirCartas(
 }
 
 
-int game_comprarCarta(
-    Jogo *jogo,
-    int jogadorId
-)
-{
+int game_comprarCarta(Jogo *jogo, int jogadorId) {
     if (jogo == NULL) {
         return -1;
     }
 
-    if (
-        jogadorId < 0 ||
-        jogadorId >= MAX_PLAYERS
-    ) {
+    if (jogadorId < 0 || jogadorId >= MAX_PLAYERS) {
         return -1;
     }
 
@@ -184,23 +152,17 @@ int game_comprarCarta(
         return -1;
     }
 
-    Jogador *jogador =
-        &jogo->jogadores[jogadorId];
+    Jogador *jogador = &jogo->jogadores[jogadorId];
 
-    if (
-        jogador->qtdCartas >=
-        MAX_QTD_CARTAS_JOGADOR
-    ) {
+    if (jogador->qtdCartas >= MAX_QTD_CARTAS_JOGADOR) {
         return -1;
     }
 
-    Carta carta =
-        jogo->baralho[jogo->topoBaralho - 1];
+    Carta carta = jogo->baralho[jogo->topoBaralho - 1];
 
     jogo->topoBaralho--;
 
-    jogador->cartas[jogador->qtdCartas] =
-        carta;
+    jogador->cartas[jogador->qtdCartas] = carta;
 
     jogador->qtdCartas++;
 
@@ -213,20 +175,12 @@ int game_comprarCarta(
 }
 
 
-int game_podeJogarCarta(
-    Jogo *jogo,
-    int jogadorId,
-    int cartaId
-)
-{
+int game_podeJogarCarta(Jogo *jogo, int jogadorId, int cartaId) {
     if (jogo == NULL) {
         return 0;
     }
 
-    if (
-        jogadorId < 0 ||
-        jogadorId >= MAX_PLAYERS
-    ) {
+    if (jogadorId < 0 || jogadorId >= MAX_PLAYERS) {
         return 0;
     }
 
@@ -234,19 +188,13 @@ int game_podeJogarCarta(
         return 0;
     }
 
-    Jogador *jogador =
-        &jogo->jogadores[jogadorId];
+    Jogador *jogador = &jogo->jogadores[jogadorId];
 
     /*
      * Procura a carta na mão do jogador.
      */
-    for (
-        int i = 0;
-        i < jogador->qtdCartas;
-        i++
-    ) {
-        Carta carta =
-            jogador->cartas[i];
+    for (int i = 0; i < jogador->qtdCartas; i++) {
+        Carta carta = jogador->cartas[i];
 
         if (carta.id != cartaId) {
             continue;
@@ -256,19 +204,11 @@ int game_podeJogarCarta(
          * Pode jogar se a cor for igual
          * ou se o número for igual.
          */
-        if (
-            carta.cor ==
-            jogo->ultimaCarta.cor
-        ) {
+        if (carta.cor == jogo->ultimaCarta.cor) {
             return 1;
         }
 
-        if (
-            strcmp(
-                carta.simbolo,
-                jogo->ultimaCarta.simbolo
-            ) == 0
-        ) {
+        if (strcmp(carta.simbolo, jogo->ultimaCarta.simbolo) == 0) {
             return 1;
         }
 
@@ -282,24 +222,12 @@ int game_podeJogarCarta(
 }
 
 
-int game_jogarCarta(
-    Jogo *jogo,
-    int jogadorId,
-    int cartaId
-)
-{
-    if (
-        !game_podeJogarCarta(
-            jogo,
-            jogadorId,
-            cartaId
-        )
-    ) {
+int game_jogarCarta(Jogo *jogo, int jogadorId, int cartaId) {
+    if (!game_podeJogarCarta(jogo, jogadorId, cartaId)) {
         return -1;
     }
 
-    Jogador *jogador =
-        &jogo->jogadores[jogadorId];
+    Jogador *jogador = &jogo->jogadores[jogadorId];
 
     int indiceCarta = -1;
 
@@ -307,15 +235,8 @@ int game_jogarCarta(
      * Encontra a posição da carta
      * dentro da mão.
      */
-    for (
-        int i = 0;
-        i < jogador->qtdCartas;
-        i++
-    ) {
-        if (
-            jogador->cartas[i].id ==
-            cartaId
-        ) {
+    for (int i = 0; i < jogador->qtdCartas; i++) {
+        if (jogador->cartas[i].id == cartaId) {
             indiceCarta = i;
             break;
         }
@@ -329,8 +250,7 @@ int game_jogarCarta(
      * A carta jogada passa a ser
      * a última carta da partida.
      */
-    jogo->ultimaCarta =
-        jogador->cartas[indiceCarta];
+    jogo->ultimaCarta = jogador->cartas[indiceCarta];
 
     /*
      * Remove a carta da mão.
@@ -338,13 +258,8 @@ int game_jogarCarta(
      * Deslocamos as cartas seguintes
      * uma posição para a esquerda.
      */
-    for (
-        int i = indiceCarta;
-        i < jogador->qtdCartas - 1;
-        i++
-    ) {
-        jogador->cartas[i] =
-            jogador->cartas[i + 1];
+    for (int i = indiceCarta; i < jogador->qtdCartas - 1; i++) {
+        jogador->cartas[i] = jogador->cartas[i + 1];
     }
 
     jogador->qtdCartas--;
@@ -352,12 +267,7 @@ int game_jogarCarta(
     /*
      * Verifica se o jogador venceu.
      */
-    if (
-        game_jogadorVenceu(
-            jogo,
-            jogadorId
-        )
-    ) {
+    if (game_jogadorVenceu(jogo, jogadorId)) {
         jogo->partidaFinalizada = 1;
         return 0;
     }
@@ -371,10 +281,7 @@ int game_jogarCarta(
 }
 
 
-void game_proximoJogador(
-    Jogo *jogo
-)
-{
+void game_proximoJogador(Jogo *jogo) {
     if (jogo == NULL) {
         return;
     }
@@ -383,72 +290,41 @@ void game_proximoJogador(
         return;
     }
 
-    jogo->jogadorDaVez =
-        (jogo->jogadorDaVez + 1)
-        % MAX_PLAYERS;
+    jogo->jogadorDaVez = (jogo->jogadorDaVez + 1) % MAX_PLAYERS;
 }
 
 
-int game_jogadorVenceu(
-    Jogo *jogo,
-    int jogadorId
-)
-{
+int game_jogadorVenceu(Jogo *jogo, int jogadorId) {
     if (jogo == NULL) {
         return 0;
     }
 
-    if (
-        jogadorId < 0 ||
-        jogadorId >= MAX_PLAYERS
-    ) {
+    if (jogadorId < 0 || jogadorId >= MAX_PLAYERS) {
         return 0;
     }
 
-    return (
-        jogo->jogadores[jogadorId].qtdCartas == 0
-    );
+    return jogo->jogadores[jogadorId].qtdCartas == 0;
 }
 
 
-int game_obterCartasPossiveis(
-    Jogo *jogo,
-    int jogadorId
-)
-{
+int game_obterCartasPossiveis(Jogo *jogo, int jogadorId) {
     if (jogo == NULL) {
         return -1;
     }
 
-    if (
-        jogadorId < 0 ||
-        jogadorId >= MAX_PLAYERS
-    ) {
+    if (jogadorId < 0 || jogadorId >= MAX_PLAYERS) {
         return -1;
     }
 
-    Jogador *jogador =
-        &jogo->jogadores[jogadorId];
+    Jogador *jogador = &jogo->jogadores[jogadorId];
 
     jogador->qtdCartasPossiveis = 0;
 
-    for (
-        int i = 0;
-        i < jogador->qtdCartas;
-        i++
-    ) {
+    for (int i = 0; i < jogador->qtdCartas; i++) {
         Carta carta = jogador->cartas[i];
 
-        if (
-            carta.cor == jogo->ultimaCarta.cor ||
-            strcmp(
-                carta.simbolo,
-                jogo->ultimaCarta.simbolo
-            ) == 0
-        ) {
-            jogador->idsCartasPossiveis[
-                jogador->qtdCartasPossiveis
-            ] = carta.id;
+        if (carta.cor == jogo->ultimaCarta.cor || strcmp(carta.simbolo, jogo->ultimaCarta.simbolo) == 0) {
+            jogador->idsCartasPossiveis[jogador->qtdCartasPossiveis] = carta.id;
 
             jogador->qtdCartasPossiveis++;
         }
@@ -458,23 +334,12 @@ int game_obterCartasPossiveis(
 }
 
 
-void game_obterEstado(
-    Jogo *jogo,
-    int jogadorId,
-    EstadoJogo *estado
-)
-{
-    if (
-        jogo == NULL ||
-        estado == NULL
-    ) {
+void game_obterEstado(Jogo *jogo, int jogadorId, EstadoJogo *estado) {
+    if (jogo == NULL || estado == NULL) {
         return;
     }
 
-    if (
-        jogadorId < 0 ||
-        jogadorId >= MAX_PLAYERS
-    ) {
+    if (jogadorId < 0 || jogadorId >= MAX_PLAYERS) {
         return;
     }
 
@@ -484,45 +349,33 @@ void game_obterEstado(
         sizeof(EstadoJogo)
     );
 
-    Jogador *jogador =
-        &jogo->jogadores[jogadorId];
+    Jogador *jogador = &jogo->jogadores[jogadorId];
 
     /*
      * Informações do próprio jogador.
      */
     game_obterCartasPossiveis(jogo, jogadorId);
 
-    estado->jogador =
-        *jogador;
+    estado->jogador = *jogador;
 
     /*
      * Informações gerais da partida.
      */
     estado->partida.numeroRodada = 1;
 
-    estado->partida.suaVez =
-        (jogo->jogadorDaVez == jogadorId);
+    estado->partida.suaVez = jogo->jogadorDaVez == jogadorId;
 
-    estado->partida.ultimaCarta =
-        jogo->ultimaCarta;
+    estado->partida.ultimaCarta = jogo->ultimaCarta;
 
 
     /*
      * Informações do adversário.
      */
-    int adversarioId =
-        (jogadorId + 1) % MAX_PLAYERS;
+    int adversarioId = (jogadorId + 1) % MAX_PLAYERS;
 
-    estado->partida.numeroCartasAdversario =
-        jogo->jogadores[adversarioId].qtdCartas;
+    estado->partida.numeroCartasAdversario = jogo->jogadores[adversarioId].qtdCartas;
 
-    strncpy(
-        estado->partida.nomeAdversario,
-        jogo->jogadores[adversarioId].nome,
-        MAX_NOME_JOGADOR - 1
-    );
+    strncpy(estado->partida.nomeAdversario, jogo->jogadores[adversarioId].nome, MAX_NOME_JOGADOR - 1);
 
-    estado->partida.nomeAdversario[
-        MAX_NOME_JOGADOR - 1
-    ] = '\0';
+    estado->partida.nomeAdversario[MAX_NOME_JOGADOR - 1] = '\0';
 }
