@@ -200,7 +200,6 @@ DWORD WINAPI workerThread(LPVOID arg) {
                 }
 
             } else {
-
                 printf("[WORKER] Jogada valida.\n");
 
                 enviarEstadoParaTodos(server,&jogo);
@@ -232,10 +231,9 @@ DWORD WINAPI workerThread(LPVOID arg) {
             else {
                 printf("[WORKER] Carta comprada.\n");
 
-                enviarEstadoParaTodos(server,&jogo);
+                enviarEstadoParaTodos(server, &jogo);
             }
         }
-
 
         /*
          * =================================
@@ -249,20 +247,12 @@ DWORD WINAPI workerThread(LPVOID arg) {
             printf("[WORKER] Acao nao suportada: %d\n", request.acao);
 
             prepararJogadaInvalida(&jogo, request.jogadorId, &response);
+
+            if (responseQueuePush(&server->responseQueue, response) != 0) {
+                break;
+            }
         }
 
-
-        /*
-         * Coloca a resposta na fila
-         * para o Writer enviar.
-         */
-        if (responseQueuePush(&server->responseQueue,response) != 0) {
-            printf("[WORKER] Erro ao adicionar resposta na fila.\n");
-
-            break;
-        }
-
-        printf("[WORKER] Resposta adicionada na response queue.\n");
     }
 
     printf("[WORKER] Thread finalizada.\n");
