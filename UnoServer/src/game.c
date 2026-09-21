@@ -141,20 +141,29 @@ void game_distribuirCartas(Jogo *jogo) {
 
 int game_comprarCarta(Jogo *jogo, int jogadorId) {
     if (jogo == NULL) {
+        printf("[GAME] jogo == NULL\n");
         return -1;
     }
 
     if (jogadorId < 0 || jogadorId >= MAX_PLAYERS) {
+        printf("[GAME] jogadorId invalido: %d\n", jogadorId);
         return -1;
     }
 
+    printf("[GAME] Jogador %d tentando comprar.\n",jogadorId + 1);
+    printf("[GAME] topoBaralho antes: %d\n",jogo->topoBaralho);
+
     if (jogo->topoBaralho <= 0) {
+        printf("[GAME] Baralho vazio.\n");
         return -1;
     }
 
     Jogador *jogador = &jogo->jogadores[jogadorId];
 
+    printf("[GAME] Quantidade de cartas: %d\n", jogador->qtdCartas);
+
     if (jogador->qtdCartas >= MAX_QTD_CARTAS_JOGADOR) {
+        printf("[GAME] Jogador atingiu limite de cartas.\n");
         return -1;
     }
 
@@ -166,10 +175,17 @@ int game_comprarCarta(Jogo *jogo, int jogadorId) {
 
     jogador->qtdCartas++;
 
-    /*
-     * Depois de comprar, o turno termina.
-     */
+    printf("[GAME] Carta comprada: ID=%d, cor=%d, simbolo=%s\n",
+        carta.id,
+        carta.cor,
+        carta.simbolo
+    );
+
+    printf("[GAME] Nova quantidade de cartas: %d\n",jogador->qtdCartas);
+
     game_proximoJogador(jogo);
+
+    printf("[GAME] Proximo jogador: %d\n",jogo->jogadorDaVez + 1);
 
     return 0;
 }
@@ -269,6 +285,9 @@ int game_jogarCarta(Jogo *jogo, int jogadorId, int cartaId) {
      */
     if (game_jogadorVenceu(jogo, jogadorId)) {
         jogo->partidaFinalizada = 1;
+
+        printf("[GAME] Jogador %d venceu!\n", jogadorId + 1);
+
         return 0;
     }
 

@@ -125,6 +125,32 @@ static void enviarEstadoParaTodos(Server *server,Jogo *jogo) {
 }
 
 
+static void enviarPartidaFinalizada(Server *server, Jogo *jogo) {
+    for (int jogadorId = 0; jogadorId < MAX_PLAYERS; jogadorId++) {
+
+        Mensagem response;
+
+        memset(
+            &response,
+            0,
+            sizeof(Mensagem)
+        );
+
+        response.tipo = MSG_PARTIDA_FINALIZADA;
+
+        game_obterEstado(jogo, jogadorId, &response.estado);
+
+        if (responseQueuePush(&server->responseQueue, response) != 0) {
+            printf("[WORKER] Erro ao enviar MSG_PARTIDA_FINALIZADA para jogador %d.\n", jogadorId + 1);
+
+            return;
+        }
+
+        printf("[WORKER] MSG_PARTIDA_FINALIZADA enviada para jogador %d.\n", jogadorId + 1);
+    }
+}
+
+
 DWORD WINAPI workerThread(LPVOID arg) {
     Server *server = (Server *) arg;
 
@@ -168,6 +194,11 @@ DWORD WINAPI workerThread(LPVOID arg) {
             break;
         }
 
+        if (jogo.partidaFinalizada) {
+            printf("[WORKER] Partida ja finalizada.\n");
+            continue;
+        }
+
         printf(
             "[WORKER] Processando request: jogador=%d, acao=%d, carta=%d\n",
             request.jogadorId + 1,
@@ -202,7 +233,12 @@ DWORD WINAPI workerThread(LPVOID arg) {
             } else {
                 printf("[WORKER] Jogada valida.\n");
 
-                enviarEstadoParaTodos(server,&jogo);
+                if (jogo.partidaFinalizada) {
+                    enviarPartidaFinalizada(server, &jogo);
+
+                } else {
+                    enviarEstadoParaTodos(server,&jogo);
+                }
             }
         }
 
