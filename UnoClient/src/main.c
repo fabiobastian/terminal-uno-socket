@@ -2,7 +2,7 @@
  * @file:       client.c
  * @author:     Nathan Berger
  * @date:       2026-09-20
- * @version     2.0
+ * @version     2.1
  * @brief       Client responsible for rendering, network communication and
  *              input handling for the terminal UNO game. Windows only.
  *
@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <stdarg.h>
 
 #include "../include/protocol.h"
 
@@ -54,6 +55,19 @@
 #define DEFAULT_SERVER_PORT 8080
 
 #define STATUS_MSG_DURATION_MS 2500
+
+/* Tamanho inicial do buffer de saida usado por renderScreen() (cresce
+ * automaticamente via realloc se precisar). */
+#define RENDER_BUF_INITIAL_CAPACITY 65536
+
+/* Buffer de stdio maior, para reduzir o numero de escritas reais no console. */
+#define STDOUT_BUFFER_SIZE 65536
+
+/* Log de diagnostico: grava em client_debug.log toda mensagem recebida
+ * do servidor, para confirmar se o problema de "interface nao atualiza"
+ * e o client deixando de renderizar algo que chegou, ou o servidor
+ * simplesmente nao mandando a mensagem. Nao afeta a UI. */
+#define DEBUG_LOG_FILE "client_debug.log"
 
 
 /**
@@ -125,6 +139,16 @@ typedef enum {
 } Input;
 
 
+/* Buffer de saida que cresce dinamicamente. Usado para montar o frame
+ * inteiro na memoria antes de escrever no console de uma unica vez -
+ * ver comentario em renderScreen(). */
+typedef struct {
+    char *data;
+    size_t len;
+    size_t cap;
+} StrBuf;
+
+
 /**
  * ============================================================================
  * Estado compartilhado entre a thread de rede e a thread principal (UI)
@@ -145,6 +169,78 @@ typedef struct {
 } SharedState;
 
 static SharedState g_shared;
+static CRITICAL_SECTION g_logLock;
+
+
+/**
+ * ============================================================================
+ * Log de diagnostico (client_debug.log)
+ * ============================================================================
+ */
+void debugLog(const char *fmt, ...) {
+    EnterCriticalSection(&g_logLock);
+
+    FILE *f = fopen(DEBUG_LOG_FILE, "a");
+    if (f != NULL) {
+        SYSTEMTIME st;
+        GetLocalTime(&st);
+        fprintf(f, "[%02d:%02d:%02d.%03d] ", st.wHour, st.wMinute, st.wSecond, st.wMilliseconds);
+
+        va_list args;
+        va_start(args, fmt);
+        vfprintf(f, fmt, args);
+        va_end(args);
+
+        fprintf(f, "\n");
+        fclose(f);
+    }
+
+    LeaveCriticalSection(&g_logLock);
+}
+
+
+const char *tipoMensagemParaTexto(TipoMensagem tipo) {
+    switch (tipo) {
+        case MSG_PARTIDA_INICIADA:   return "MSG_PARTIDA_INICIADA";
+        case MSG_ESTADO_JOGO:        return "MSG_ESTADO_JOGO";
+        case MSG_JOGADA_INVALIDA:    return "MSG_JOGADA_INVALIDA";
+        case MSG_PARTIDA_FINALIZADA: return "MSG_PARTIDA_FINALIZADA";
+        case MSG_JOGADOR_SAIU:       return "MSG_JOGADOR_SAIU";
+        default:                     return "DESCONHECIDO";
+    }
+}
+
+
+/**
+ * ============================================================================
+ * Console: habilitar sequencias ANSI / VT100
+ * ============================================================================
+ */
+void enableAnsiConsole(void) {
+    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    DWORD mode = 0;
+
+    if (hOut != INVALID_HANDLE_VALUE && GetConsoleMode(hOut, &mode)) {
+        /*
+         * ENABLE_VIRTUAL_TERMINAL_PROCESSING: habilita as sequencias
+         * ANSI (\033[...) que usamos para cor/cursor.
+         *
+         * ENABLE_WRAP_AT_EOL_OUTPUT e REMOVIDO de proposito: por padrao
+         * o console do Windows, ao escrever um caractere na ULTIMA
+         * coluna da tela (ex.: o canto do tabuleiro), faz o cursor dar
+         * a volta e ISSO FORCA O BUFFER A ROLAR uma linha. Como
+         * "\033[H" (cursor home) e relativo ao buffer inteiro - e nao a
+         * janela visivel - depois dessa rolagem o proximo frame passa a
+         * ser desenhado uma linha ACIMA do que esta visivel, e a tela
+         * parece "congelar"/"sumir" mostrando sempre o ultimo frame que
+         * ainda estava na area visivel. Desligar esse modo evita que
+         * escrever no canto da tela dispare essa rolagem indesejada.
+         */
+        mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+        mode &= ~ENABLE_WRAP_AT_EOL_OUTPUT;
+        SetConsoleMode(hOut, mode);
+    }
+}
 
 
 /**
@@ -263,6 +359,17 @@ void drawText(Screen *screen, int x, int y, const char *text, int fg, int bg) {
 }
 
 
+/*
+ * Reseta apenas o BUFFER INTERNO (matriz de Cell) para espacos em branco.
+ *
+ * IMPORTANTE: esta funcao NAO escreve mais nada no terminal (antes ela
+ * mandava "\033[H\033[2J" a cada frame, o que limpava a tela fisica e
+ * deixava tudo em branco por um instante ate renderScreen() redesenhar
+ * celula por celula - era exatamente o efeito de "desenhando aos poucos"
+ * que estava sendo visto). Como renderScreen() sempre reescreve a tela
+ * inteira (todas as linhas/colunas), nao ha necessidade de limpar o
+ * terminal a cada frame: basta reposicionar o cursor no topo.
+ */
 void clearScreen(Screen *screen) {
     for (int y = 0; y < screen->height; y++) {
         for (int x = 0; x < screen->width; x++) {
@@ -272,7 +379,6 @@ void clearScreen(Screen *screen) {
             screen->buffer[idx].background = COLOR_DEFAULT;
         }
     }
-    printf("\033[H\033[2J");
 }
 
 
@@ -306,7 +412,81 @@ void drawBoardBorder(Screen *screen) {
 }
 
 
+/**
+ * ============================================================================
+ * StrBuf: buffer de saida que cresce dinamicamente
+ * ============================================================================
+ * Em vez de chamar printf() uma vez por celula (o que gerava milhares de
+ * escritas pequenas por frame e fazia o console "desenhar aos poucos"),
+ * acumulamos o frame inteiro aqui e escrevemos tudo de uma vez com
+ * fwrite() no final de renderScreen(). Isso faz o frame aparecer
+ * instantaneamente, como uma unica atualizacao.
+ */
+void sbInit(StrBuf *sb) {
+    sb->cap = RENDER_BUF_INITIAL_CAPACITY;
+    sb->data = malloc(sb->cap);
+    sb->len = 0;
+    if (sb->data != NULL) {
+        sb->data[0] = '\0';
+    }
+}
+
+
+void sbAppend(StrBuf *sb, const char *s, size_t n) {
+    if (sb->data == NULL || n == 0) {
+        return;
+    }
+
+    if (sb->len + n + 1 > sb->cap) {
+        size_t newCap = sb->cap;
+        while (sb->len + n + 1 > newCap) {
+            newCap *= 2;
+        }
+
+        char *tmp = realloc(sb->data, newCap);
+        if (tmp == NULL) {
+            /* Sem memoria: descarta o restante do frame em vez de
+             * arriscar um crash. O proximo frame tenta de novo. */
+            return;
+        }
+
+        sb->data = tmp;
+        sb->cap = newCap;
+    }
+
+    memcpy(sb->data + sb->len, s, n);
+    sb->len += n;
+    sb->data[sb->len] = '\0';
+}
+
+
+void sbAppendStr(StrBuf *sb, const char *s) {
+    sbAppend(sb, s, strlen(s));
+}
+
+
+void sbFree(StrBuf *sb) {
+    free(sb->data);
+    sb->data = NULL;
+    sb->len = 0;
+    sb->cap = 0;
+}
+
+
+/*
+ * Desenha o frame inteiro em um StrBuf e escreve tudo de uma vez no
+ * console com um unico fwrite()+fflush(). Antes, cada celula (e cada
+ * troca de cor) disparava um printf() separado - centenas/milhares de
+ * escritas por frame - e era isso que fazia parecer que a tela estava
+ * sendo "digitada" linha a linha em vez de aparecer instantaneamente.
+ */
 void renderScreen(Screen *screen) {
+    StrBuf sb;
+    sbInit(&sb);
+
+    /* Move o cursor para o topo (NAO limpa a tela - ver clearScreen). */
+    sbAppendStr(&sb, "\033[H");
+
     int lastFg = -1;
     int lastBg = -1;
 
@@ -317,22 +497,51 @@ void renderScreen(Screen *screen) {
 
             if (cell.foreground != lastFg || cell.background != lastBg) {
                 if (cell.foreground == COLOR_DEFAULT && cell.background == COLOR_DEFAULT) {
-                    printf("\033[0m");
+                    sbAppendStr(&sb, "\033[0m");
                 } else {
+                    char seq[32];
                     int fg = (cell.foreground == COLOR_DEFAULT) ? COLOR_WHITE : cell.foreground;
                     int bg = (cell.background == COLOR_DEFAULT) ? 49 : cell.background + 10;
-                    printf("\033[%d;%dm", fg, bg);
+                    int n = snprintf(seq, sizeof(seq), "\033[%d;%dm", fg, bg);
+                    if (n > 0) {
+                        sbAppend(&sb, seq, (size_t) n);
+                    }
                 }
                 lastFg = cell.foreground;
                 lastBg = cell.background;
             }
 
-            printf("%s", cell.character);
+            sbAppendStr(&sb, cell.character);
         }
-        printf("\033[0m\n");
+
+        sbAppendStr(&sb, "\033[0m");
+
+        /* So pula pra proxima linha se NAO formos a ultima linha do frame.
+         * Escrever "\n" depois da ultima linha empurraria o cursor para
+         * uma linha que nao existe na tela, o que forca o console a
+         * rolar o buffer - exatamente o que causa a tela "sumir"/
+         * congelar apos o primeiro frame (ver comentario em
+         * enableAnsiConsole()). Como o proximo frame comeca com
+         * "\033[H" (volta pro topo), nao precisamos avancar o cursor
+         * aqui mesmo. */
+        if (y < screen->height - 1) {
+            sbAppendStr(&sb, "\n");
+        }
+
         lastFg = -1;
         lastBg = -1;
     }
+
+    /* Limpa do cursor ate o fim da tela, para o caso do terminal ter
+     * mostrado algo maior num frame anterior (ex.: redimensionamento). */
+    sbAppendStr(&sb, "\033[0J");
+
+    if (sb.data != NULL) {
+        fwrite(sb.data, 1, sb.len, stdout);
+        fflush(stdout);
+    }
+
+    sbFree(&sb);
 }
 
 
@@ -654,12 +863,25 @@ bool enviarSolicitacao(SOCKET sock, int jogadorId, TipoAcao acao, int cartaId) {
     req.acao = acao;
     req.cartaId = cartaId;
 
-    return enviarTudo(sock, (const char *) &req, sizeof(req)) == (int) sizeof(req);
+    bool ok = enviarTudo(sock, (const char *) &req, sizeof(req)) == (int) sizeof(req);
+
+    debugLog("ENVIADO -> jogadorId=%d acao=%d cartaId=%d ok=%d",
+        jogadorId, (int) acao, cartaId, ok ? 1 : 0);
+
+    return ok;
 }
 
 
 /* Thread de recebimento: consome mensagens do servidor continuamente e
- * atualiza o estado compartilhado, protegido por CRITICAL_SECTION. */
+ * atualiza o estado compartilhado, protegido por CRITICAL_SECTION.
+ *
+ * OBS: a primeira mensagem (MSG_PARTIDA_INICIADA) e recebida e validada
+ * de forma SINCRONA em main(), ANTES desta thread ser criada (ver secao
+ * 10 da spec: a primeira mensagem deve ser obrigatoriamente
+ * MSG_PARTIDA_INICIADA e o client deve validar isso). O case abaixo para
+ * MSG_PARTIDA_INICIADA existe apenas como rede de seguranca, caso essa
+ * mensagem chegue de novo por algum motivo - o fluxo normal nunca deve
+ * passar por aqui para ela. */
 DWORD WINAPI recvThreadProc(LPVOID param) {
     SOCKET sock = (SOCKET)(uintptr_t) param;
 
@@ -668,15 +890,29 @@ DWORD WINAPI recvThreadProc(LPVOID param) {
         int resultado = recvAll(sock, (char *) &msg, sizeof(msg));
 
         if (resultado <= 0) {
+            debugLog("RECEBIDO -> recvAll retornou %d (0=servidor fechou, <0=erro WSAError=%d)",
+                resultado, WSAGetLastError());
+
             EnterCriticalSection(&g_shared.lock);
             g_shared.connectionLost = true;
             LeaveCriticalSection(&g_shared.lock);
             break;
         }
 
+        debugLog("RECEBIDO <- tipo=%s (%d) suaVez=%d jogadorId=%d qtdCartas=%d",
+            tipoMensagemParaTexto(msg.tipo), (int) msg.tipo,
+            msg.estado.partida.suaVez, msg.estado.jogador.id,
+            msg.estado.jogador.qtdCartas);
+
         EnterCriticalSection(&g_shared.lock);
 
         switch (msg.tipo) {
+            case MSG_PARTIDA_INICIADA:
+                /* Rede de seguranca - ver comentario acima da funcao. */
+                g_shared.estado = msg.estado;
+                g_shared.hasEstado = true;
+                break;
+
             case MSG_ESTADO_JOGO:
                 g_shared.estado = msg.estado;
                 g_shared.hasEstado = true;
@@ -710,13 +946,24 @@ DWORD WINAPI recvThreadProc(LPVOID param) {
 
 
 int main(int argc, char *argv[]) {
+    /* Buffer de stdio maior: reduz o numero de escritas reais no console
+     * (complementa o fwrite unico de renderScreen). */
+    static char stdoutBuf[STDOUT_BUFFER_SIZE];
+    setvbuf(stdout, stdoutBuf, _IOFBF, sizeof(stdoutBuf));
+
     const char *serverIp = (argc > 1) ? argv[1] : DEFAULT_SERVER_IP;
     int serverPort = (argc > 2) ? atoi(argv[2]) : DEFAULT_SERVER_PORT;
 
     SetConsoleOutputCP(CP_UTF8);
     SetConsoleCP(CP_UTF8);
+    enableAnsiConsole();
 
     InitializeCriticalSection(&g_shared.lock);
+    InitializeCriticalSection(&g_logLock);
+
+    /* Comeca o log do zero a cada execucao. */
+    remove(DEBUG_LOG_FILE);
+    debugLog("=== client iniciado (pid=%lu) ===", (unsigned long) GetCurrentProcessId());
 
     /*
      * ========================================================
@@ -743,6 +990,7 @@ int main(int argc, char *argv[]) {
     serverAddress.sin_addr.s_addr = inet_addr(serverIp);
 
     printf("Conectando a %s:%d...\n", serverIp, serverPort);
+    fflush(stdout);
 
     if (connect(sock, (struct sockaddr *) &serverAddress, sizeof(serverAddress)) == SOCKET_ERROR) {
         printf("Erro ao conectar. WSAError: %d\n", WSAGetLastError());
@@ -752,6 +1000,50 @@ int main(int argc, char *argv[]) {
     }
 
     printf("Conectado! Aguardando estado inicial do servidor...\n");
+    fflush(stdout);
+
+    /*
+     * ========================================================
+     * PRIMEIRA MENSAGEM: deve ser obrigatoriamente
+     * MSG_PARTIDA_INICIADA (secao 10 da spec). Recebida de forma
+     * sincrona, ANTES de criar a thread de recebimento, e validada -
+     * isso estava faltando na versao anterior deste arquivo.
+     * ========================================================
+     */
+    Mensagem primeiraMensagem;
+    int resultadoInicial = recvAll(sock, (char *) &primeiraMensagem, sizeof(primeiraMensagem));
+
+    if (resultadoInicial == 0) {
+        printf("\nServidor desconectou antes de iniciar a partida.\n");
+        closesocket(sock);
+        WSACleanup();
+        return EXIT_FAILURE;
+    }
+
+    if (resultadoInicial < 0) {
+        printf("\nErro ao receber mensagem inicial. WSAError: %d\n", WSAGetLastError());
+        closesocket(sock);
+        WSACleanup();
+        return EXIT_FAILURE;
+    }
+
+    debugLog("RECEBIDO (sincrono) <- tipo=%s (%d) suaVez=%d jogadorId=%d",
+        tipoMensagemParaTexto(primeiraMensagem.tipo), (int) primeiraMensagem.tipo,
+        primeiraMensagem.estado.partida.suaVez, primeiraMensagem.estado.jogador.id);
+
+    if (primeiraMensagem.tipo != MSG_PARTIDA_INICIADA) {
+        printf("\nERRO DE PROTOCOLO!\n");
+        printf("Esperado: MSG_PARTIDA_INICIADA\n");
+        printf("Recebido: %d\n", primeiraMensagem.tipo);
+        closesocket(sock);
+        WSACleanup();
+        return EXIT_FAILURE;
+    }
+
+    /* Ainda nao existe outra thread rodando, entao nao precisa de lock
+     * para esta primeira escrita. */
+    g_shared.estado = primeiraMensagem.estado;
+    g_shared.hasEstado = true;
 
     HANDLE hRecvThread = CreateThread(NULL, 0, recvThreadProc, (LPVOID)(uintptr_t) sock, 0, NULL);
     if (hRecvThread == NULL) {
@@ -787,6 +1079,13 @@ int main(int argc, char *argv[]) {
 
     int jogadorId = -1;
     int running = 1;
+
+    /* Limpa o terminal e esconde o cursor UMA VEZ, antes do loop.
+     * renderScreen() ja reescreve a tela inteira em todo frame, entao
+     * nao ha necessidade (nem beneficio) de limpar de novo a cada
+     * iteracao - era isso que causava o "flash" + desenho progressivo. */
+    printf("\033[2J\033[H\033[?25l");
+    fflush(stdout);
 
     while (running) {
         EstadoJogo estado;
@@ -833,16 +1132,18 @@ int main(int argc, char *argv[]) {
         renderScreen(&screen);
 
         if (connectionLost) {
-            printf("\nConexao com o servidor perdida.\n");
+            printf("\033[?25h\nConexao com o servidor perdida.\n");
             break;
         }
         if (adversarioSaiu) {
-            printf("\nO adversario saiu da partida.\n");
+            printf("\033[?25h\nO adversario saiu da partida.\n");
+            fflush(stdout);
             Sleep(2000);
             break;
         }
         if (partidaFinalizada) {
-            printf("\nPartida finalizada!\n");
+            printf("\033[?25h\nPartida finalizada!\n");
+            fflush(stdout);
             Sleep(2000);
             break;
         }
@@ -872,12 +1173,14 @@ int main(int argc, char *argv[]) {
 
                 case INPUT_DOWN:
                     if (estado.partida.suaVez) {
-                        enviarSolicitacao(sock, jogadorId, ACAO_COMPRAR_CARTA, -1);
+                        /* Secao 18 da spec: cartaId nao e utilizado nesta
+                         * acao e deve ser 0 (o codigo anterior enviava -1). */
+                        enviarSolicitacao(sock, jogadorId, ACAO_COMPRAR_CARTA, 0);
                     }
                     break;
 
                 case INPUT_UP:
-                    enviarSolicitacao(sock, jogadorId, ACAO_DIZER_UNO, -1);
+                    enviarSolicitacao(sock, jogadorId, ACAO_DIZER_UNO, 0);
                     break;
 
                 case INPUT_ESCAPE:
@@ -897,9 +1200,13 @@ int main(int argc, char *argv[]) {
     closesocket(sock);
     WSACleanup();
     free(screen.buffer);
+    debugLog("=== client encerrado ===");
     DeleteCriticalSection(&g_shared.lock);
+    DeleteCriticalSection(&g_logLock);
 
+    printf("\033[?25h"); /* garante que o cursor volta a aparecer */
     printf("Encerrado. Pressione ENTER para sair...\n");
+    fflush(stdout);
     getchar();
 
     return EXIT_SUCCESS;
