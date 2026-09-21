@@ -16,6 +16,8 @@ typedef struct {
     Carta ultimaCarta;
 
     int jogadorDaVez;
+    int numeroRodada;
+
     int partidaFinalizada;
 
 } Jogo;

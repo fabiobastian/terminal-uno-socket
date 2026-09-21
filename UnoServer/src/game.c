@@ -13,6 +13,7 @@ void game_init(Jogo *jogo){
 
     memset(jogo, 0, sizeof(Jogo));
 
+    jogo->numeroRodada = 1;
     jogo->topoBaralho = 0;
     jogo->jogadorDaVez = 0;
     jogo->partidaFinalizada = 0;
@@ -310,6 +311,10 @@ void game_proximoJogador(Jogo *jogo) {
     }
 
     jogo->jogadorDaVez = (jogo->jogadorDaVez + 1) % MAX_PLAYERS;
+
+    if (jogo->jogadorDaVez == 0) {
+        jogo->numeroRodada++;
+    }
 }
 
 
@@ -380,7 +385,7 @@ void game_obterEstado(Jogo *jogo, int jogadorId, EstadoJogo *estado) {
     /*
      * Informações gerais da partida.
      */
-    estado->partida.numeroRodada = 1;
+    estado->partida.numeroRodada = jogo->numeroRodada;
 
     estado->partida.suaVez = jogo->jogadorDaVez == jogadorId;
 
