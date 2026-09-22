@@ -11,7 +11,6 @@
  * Copyright (c) 2026 Fábio Júnior Nielsson Bastian.
  * Unauthorized copying or use of this file is prohibited.
  */
-#define WIN32_LEAN_AND_MEAN
 #include <winsock2.h>
 #include <windows.h>
 #include <conio.h>
@@ -23,9 +22,6 @@
 #include <stdarg.h>
 
 #include "../include/protocol.h"
-
-#pragma comment(lib, "ws2_32.lib")
-
 
 /**
  * ============================================================================
@@ -221,6 +217,7 @@ void enableAnsiConsole(void) {
     DWORD mode = 0;
 
     if (hOut != INVALID_HANDLE_VALUE && GetConsoleMode(hOut, &mode)) {
+        DWORD ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0;
         /*
          * ENABLE_VIRTUAL_TERMINAL_PROCESSING: habilita as sequencias
          * ANSI (\033[...) que usamos para cor/cursor.
