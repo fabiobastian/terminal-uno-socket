@@ -6,6 +6,7 @@
 #include "protocol.h"
 
 int enviarTudo(SOCKET socket, const char *buffer, int tamanho);
+
 int recvAll(SOCKET socket, char *buffer, int tamanho);
 
 bool enviarSolicitacao(

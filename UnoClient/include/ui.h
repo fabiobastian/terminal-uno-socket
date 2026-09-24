@@ -59,21 +59,35 @@ typedef enum {
 } Input;
 
 void enableAnsiConsole(void);
+
 Input readInput(void);
 
 Screen getScreenSize(void);
+
 void freeScreen(Screen *screen);
 
 void clearScreen(Screen *screen);
+
 void drawBoardBorder(Screen *screen);
+
 BoardLayout createBoardLayout(Screen screen);
+
 void drawBoard(Screen *screen, BoardLayout layout);
+
 void drawWaitingMessage(Screen *screen, Zone zone);
 
 void drawPlayerHand(Screen *screen, HandUI *hand, const Jogador *jogador);
+
 void drawDiscardPile(Screen *screen, Zone zone, Carta card);
+
 void drawHUD(Screen *screen, Zone topZone, const EstadoJogo *estado, const char *statusMsg);
 
 void renderScreen(Screen *screen);
+
+void drawGameOver(
+    Screen *screen,
+    const char *vencedor,
+    bool jogadorVenceu
+);
 
 #endif

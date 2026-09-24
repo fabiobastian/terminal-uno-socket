@@ -2,8 +2,7 @@
 
 void debugLog(const char *fmt, ...);
 
-int enviarTudo(SOCKET socket, const char *buffer, int tamanho)
-{
+int enviarTudo(SOCKET socket, const char *buffer, int tamanho) {
     int totalEnviado = 0;
 
     while (totalEnviado < tamanho) {
@@ -22,8 +21,7 @@ int enviarTudo(SOCKET socket, const char *buffer, int tamanho)
     return totalEnviado;
 }
 
-int recvAll(SOCKET socket, char *buffer, int tamanho)
-{
+int recvAll(SOCKET socket, char *buffer, int tamanho) {
     int totalRecebido = 0;
 
     while (totalRecebido < tamanho) {
@@ -48,8 +46,7 @@ bool enviarSolicitacao(
     int jogadorId,
     TipoAcao acao,
     int cartaId
-)
-{
+) {
     Solicitacao request = {
         .jogadorId = jogadorId,
         .acao = acao,
@@ -57,15 +54,15 @@ bool enviarSolicitacao(
     };
 
     bool ok = enviarTudo(
-        socket,
-        (const char *)&request,
-        sizeof(request)
-    ) == sizeof(request);
+                  socket,
+                  (const char *) &request,
+                  sizeof(request)
+              ) == sizeof(request);
 
     debugLog(
         "ENVIADO -> jogadorId=%d acao=%d cartaId=%d ok=%d",
         jogadorId,
-        (int)acao,
+        (int) acao,
         cartaId,
         ok ? 1 : 0
     );

@@ -38,22 +38,34 @@ typedef struct {
 } StrBuf;
 
 static int corParaAnsi(Cor cor);
+
 static int corTextoParaCarta(Cor cor);
+
 static bool cartaEhJogavel(int cartaId, const int *idsPossiveis, int qtdPossiveis);
+
 static void setPixel(Screen *screen, int x, int y, const char *character);
+
 static void setPixelChar(Screen *screen, int x, int y, char c);
+
 static void setForeground(Screen *screen, int x, int y, int color);
+
 static void setBackground(Screen *screen, int x, int y, int color);
+
 static void drawText(Screen *screen, int x, int y, const char *text, int fg, int bg);
+
 static void drawZoneBorder(Screen *screen, Zone zone);
+
 static void drawCard(Screen *screen, Carta card, int x, int y, int selected, int jogavel);
+
 static void sbInit(StrBuf *sb);
+
 static void sbAppend(StrBuf *sb, const char *data, size_t size);
+
 static void sbAppendStr(StrBuf *sb, const char *data);
+
 static void sbFree(StrBuf *sb);
 
-void enableAnsiConsole(void)
-{
+void enableAnsiConsole(void) {
     HANDLE console = GetStdHandle(STD_OUTPUT_HANDLE);
     DWORD mode;
 
@@ -66,8 +78,7 @@ void enableAnsiConsole(void)
     SetConsoleMode(console, mode);
 }
 
-Input readInput(void)
-{
+Input readInput(void) {
     if (!_kbhit()) {
         return INPUT_NONE;
     }
@@ -92,8 +103,7 @@ Input readInput(void)
     return INPUT_NONE;
 }
 
-Screen getScreenSize(void)
-{
+Screen getScreenSize(void) {
     Screen screen = {0};
     HANDLE console = GetStdHandle(STD_OUTPUT_HANDLE);
     CONSOLE_SCREEN_BUFFER_INFO info;
@@ -111,7 +121,7 @@ Screen getScreenSize(void)
     }
 
     screen.buffer = malloc(
-        (size_t)screen.width * screen.height * sizeof(Cell)
+        (size_t) screen.width * screen.height * sizeof(Cell)
     );
 
     if (screen.buffer == NULL) {
@@ -121,8 +131,7 @@ Screen getScreenSize(void)
     return screen;
 }
 
-void freeScreen(Screen *screen)
-{
+void freeScreen(Screen *screen) {
     if (screen == NULL) return;
 
     free(screen->buffer);
@@ -131,8 +140,7 @@ void freeScreen(Screen *screen)
     screen->height = 0;
 }
 
-static void setPixel(Screen *screen, int x, int y, const char *character)
-{
+static void setPixel(Screen *screen, int x, int y, const char *character) {
     if (screen == NULL || screen->buffer == NULL ||
         x < 0 || x >= screen->width ||
         y < 0 || y >= screen->height) {
@@ -152,14 +160,12 @@ static void setPixel(Screen *screen, int x, int y, const char *character)
     ] = '\0';
 }
 
-static void setPixelChar(Screen *screen, int x, int y, char c)
-{
+static void setPixelChar(Screen *screen, int x, int y, char c) {
     char character[2] = {c, '\0'};
     setPixel(screen, x, y, character);
 }
 
-static void setForeground(Screen *screen, int x, int y, int color)
-{
+static void setForeground(Screen *screen, int x, int y, int color) {
     if (screen == NULL || screen->buffer == NULL ||
         x < 0 || x >= screen->width ||
         y < 0 || y >= screen->height) {
@@ -169,8 +175,7 @@ static void setForeground(Screen *screen, int x, int y, int color)
     screen->buffer[y * screen->width + x].foreground = color;
 }
 
-static void setBackground(Screen *screen, int x, int y, int color)
-{
+static void setBackground(Screen *screen, int x, int y, int color) {
     if (screen == NULL || screen->buffer == NULL ||
         x < 0 || x >= screen->width ||
         y < 0 || y >= screen->height) {
@@ -180,8 +185,7 @@ static void setBackground(Screen *screen, int x, int y, int color)
     screen->buffer[y * screen->width + x].background = color;
 }
 
-static void drawText(Screen *screen, int x, int y, const char *text, int fg, int bg)
-{
+static void drawText(Screen *screen, int x, int y, const char *text, int fg, int bg) {
     for (int i = 0; text[i] != '\0'; ++i) {
         setPixelChar(screen, x + i, y, text[i]);
         setForeground(screen, x + i, y, fg);
@@ -189,8 +193,7 @@ static void drawText(Screen *screen, int x, int y, const char *text, int fg, int
     }
 }
 
-void clearScreen(Screen *screen)
-{
+void clearScreen(Screen *screen) {
     if (screen == NULL || screen->buffer == NULL) return;
 
     for (int y = 0; y < screen->height; ++y) {
@@ -203,8 +206,7 @@ void clearScreen(Screen *screen)
     }
 }
 
-void drawBoardBorder(Screen *screen)
-{
+void drawBoardBorder(Screen *screen) {
     int width = screen->width;
     int height = screen->height;
 
@@ -219,8 +221,7 @@ void drawBoardBorder(Screen *screen)
     }
 }
 
-static void drawZoneBorder(Screen *screen, Zone zone)
-{
+static void drawZoneBorder(Screen *screen, Zone zone) {
     int x = zone.bounds.x;
     int y = zone.bounds.y;
     int width = zone.bounds.width;
@@ -264,8 +265,7 @@ static void drawZoneBorder(Screen *screen, Zone zone)
     }
 }
 
-BoardLayout createBoardLayout(Screen screen)
-{
+BoardLayout createBoardLayout(Screen screen) {
     int centerWidth = screen.width - 2 * SIDE_WIDTH;
     int centerHeight = screen.height - TOP_HEIGHT - BOTTOM_HEIGHT;
 
@@ -295,15 +295,13 @@ BoardLayout createBoardLayout(Screen screen)
     return layout;
 }
 
-void drawBoard(Screen *screen, BoardLayout layout)
-{
+void drawBoard(Screen *screen, BoardLayout layout) {
     drawZoneBorder(screen, layout.top);
     drawZoneBorder(screen, layout.bottom);
     drawZoneBorder(screen, layout.center);
 }
 
-void drawWaitingMessage(Screen *screen, Zone zone)
-{
+void drawWaitingMessage(Screen *screen, Zone zone) {
     drawText(
         screen,
         zone.bounds.x + 8,
@@ -314,25 +312,22 @@ void drawWaitingMessage(Screen *screen, Zone zone)
     );
 }
 
-static int corParaAnsi(Cor cor)
-{
+static int corParaAnsi(Cor cor) {
     switch (cor) {
-        case AMARELO:  return COLOR_YELLOW;
+        case AMARELO: return COLOR_YELLOW;
         case VERMELHO: return COLOR_RED;
-        case VERDE:    return COLOR_GREEN;
-        case AZUL:     return COLOR_BLUE;
-        case PRETO:    return COLOR_MAGENTA;
-        default:       return COLOR_WHITE;
+        case VERDE: return COLOR_GREEN;
+        case AZUL: return COLOR_BLUE;
+        case PRETO: return COLOR_MAGENTA;
+        default: return COLOR_WHITE;
     }
 }
 
-static int corTextoParaCarta(Cor cor)
-{
+static int corTextoParaCarta(Cor cor) {
     return cor == AMARELO ? COLOR_BLACK : COLOR_WHITE;
 }
 
-static bool cartaEhJogavel(int cartaId, const int *idsPossiveis, int qtdPossiveis)
-{
+static bool cartaEhJogavel(int cartaId, const int *idsPossiveis, int qtdPossiveis) {
     for (int i = 0; i < qtdPossiveis; ++i) {
         if (idsPossiveis[i] == cartaId) return true;
     }
@@ -347,8 +342,7 @@ static void drawCard(
     int y,
     int selected,
     int jogavel
-)
-{
+) {
     int bottom = y + CARD_HEIGHT - 1;
     const char *vertical = selected ? "║" : "│";
     const char *horizontal = selected ? "═" : "─";
@@ -390,7 +384,7 @@ static void drawCard(
     strncpy(symbol, card.simbolo, 3);
     symbol[3] = '\0';
 
-    int symbolLength = (int)strlen(symbol);
+    int symbolLength = (int) strlen(symbol);
     int innerWidth = CARD_WIDTH - 2;
     int symbolX = x + 1 + (innerWidth - symbolLength) / 2;
 
@@ -406,10 +400,9 @@ static void drawCard(
     );
 }
 
-void drawPlayerHand(Screen *screen, HandUI *hand, const Jogador *jogador)
-{
-    int paddingY = hand->zone.bounds.y + (int)(hand->zone.bounds.height * 0.2);
-    int paddingX = hand->zone.bounds.x + (int)(hand->zone.bounds.width * 0.1);
+void drawPlayerHand(Screen *screen, HandUI *hand, const Jogador *jogador) {
+    int paddingY = hand->zone.bounds.y + (int) (hand->zone.bounds.height * 0.2);
+    int paddingX = hand->zone.bounds.x + (int) (hand->zone.bounds.width * 0.1);
 
     for (int i = 0; i < jogador->qtdCartas; ++i) {
         int cardX = paddingX + i * (CARD_WIDTH + CARD_GAP);
@@ -431,15 +424,13 @@ void drawPlayerHand(Screen *screen, HandUI *hand, const Jogador *jogador)
     }
 }
 
-void drawDiscardPile(Screen *screen, Zone zone, Carta card)
-{
+void drawDiscardPile(Screen *screen, Zone zone, Carta card) {
     int x = zone.bounds.x + (zone.bounds.width - CARD_WIDTH) / 2;
     int y = zone.bounds.y + (zone.bounds.height - CARD_HEIGHT) / 2;
     drawCard(screen, card, x, y, 0, 0);
 }
 
-void drawHUD(Screen *screen, Zone topZone, const EstadoJogo *estado, const char *statusMsg)
-{
+void drawHUD(Screen *screen, Zone topZone, const EstadoJogo *estado, const char *statusMsg) {
     int x = topZone.bounds.x + 2;
     int y = topZone.bounds.y + 1;
     char line[160];
@@ -455,8 +446,8 @@ void drawHUD(Screen *screen, Zone topZone, const EstadoJogo *estado, const char 
     drawText(screen, x, y, line, COLOR_WHITE, COLOR_DEFAULT);
 
     const char *turn = estado->partida.suaVez
-        ? "SUA VEZ"
-        : "AGUARDANDO ADVERSARIO...";
+                           ? "SUA VEZ"
+                           : "AGUARDANDO ADVERSARIO...";
     int turnColor = estado->partida.suaVez ? COLOR_GREEN : COLOR_YELLOW;
     drawText(screen, x, y + 2, turn, turnColor, COLOR_DEFAULT);
 
@@ -477,8 +468,7 @@ void drawHUD(Screen *screen, Zone topZone, const EstadoJogo *estado, const char 
     }
 }
 
-static void sbInit(StrBuf *sb)
-{
+static void sbInit(StrBuf *sb) {
     sb->cap = RENDER_BUF_INITIAL_CAPACITY;
     sb->len = 0;
     sb->data = malloc(sb->cap);
@@ -486,8 +476,7 @@ static void sbInit(StrBuf *sb)
     if (sb->data != NULL) sb->data[0] = '\0';
 }
 
-static void sbAppend(StrBuf *sb, const char *data, size_t size)
-{
+static void sbAppend(StrBuf *sb, const char *data, size_t size) {
     if (sb->data == NULL || size == 0) return;
 
     if (sb->len + size + 1 > sb->cap) {
@@ -509,21 +498,18 @@ static void sbAppend(StrBuf *sb, const char *data, size_t size)
     sb->data[sb->len] = '\0';
 }
 
-static void sbAppendStr(StrBuf *sb, const char *data)
-{
+static void sbAppendStr(StrBuf *sb, const char *data) {
     sbAppend(sb, data, strlen(data));
 }
 
-static void sbFree(StrBuf *sb)
-{
+static void sbFree(StrBuf *sb) {
     free(sb->data);
     sb->data = NULL;
     sb->len = 0;
     sb->cap = 0;
 }
 
-void renderScreen(Screen *screen)
-{
+void renderScreen(Screen *screen) {
     StrBuf sb;
     sbInit(&sb);
     sbAppendStr(&sb, "\033[H");
@@ -542,11 +528,11 @@ void renderScreen(Screen *screen)
                 } else {
                     char sequence[32];
                     int fg = cell.foreground == COLOR_DEFAULT
-                        ? COLOR_WHITE
-                        : cell.foreground;
+                                 ? COLOR_WHITE
+                                 : cell.foreground;
                     int bg = cell.background == COLOR_DEFAULT
-                        ? 49
-                        : cell.background + 10;
+                                 ? 49
+                                 : cell.background + 10;
                     int length = snprintf(
                         sequence,
                         sizeof(sequence),
@@ -556,7 +542,7 @@ void renderScreen(Screen *screen)
                     );
 
                     if (length > 0) {
-                        sbAppend(&sb, sequence, (size_t)length);
+                        sbAppend(&sb, sequence, (size_t) length);
                     }
                 }
 

@@ -38,6 +38,9 @@ typedef struct {
     bool connectionLost;
     bool partidaFinalizada;
     bool adversarioSaiu;
+
+    char vencedor[MAX_NOME_JOGADOR];
+
     char statusMsg[128];
     DWORD statusMsgExpiry;
 } SharedState;
@@ -45,8 +48,7 @@ typedef struct {
 static SharedState g_shared;
 static CRITICAL_SECTION g_logLock;
 
-void debugLog(const char *fmt, ...)
-{
+void debugLog(const char *fmt, ...) {
     EnterCriticalSection(&g_logLock);
 
     FILE *file = fopen(DEBUG_LOG_FILE, "a");
@@ -76,27 +78,25 @@ void debugLog(const char *fmt, ...)
     LeaveCriticalSection(&g_logLock);
 }
 
-static const char *tipoMensagemParaTexto(TipoMensagem tipo)
-{
+static const char *tipoMensagemParaTexto(TipoMensagem tipo) {
     switch (tipo) {
-        case MSG_PARTIDA_INICIADA:   return "MSG_PARTIDA_INICIADA";
-        case MSG_ESTADO_JOGO:        return "MSG_ESTADO_JOGO";
-        case MSG_JOGADA_INVALIDA:    return "MSG_JOGADA_INVALIDA";
+        case MSG_PARTIDA_INICIADA: return "MSG_PARTIDA_INICIADA";
+        case MSG_ESTADO_JOGO: return "MSG_ESTADO_JOGO";
+        case MSG_JOGADA_INVALIDA: return "MSG_JOGADA_INVALIDA";
         case MSG_PARTIDA_FINALIZADA: return "MSG_PARTIDA_FINALIZADA";
-        case MSG_JOGADOR_SAIU:       return "MSG_JOGADOR_SAIU";
-        default:                     return "DESCONHECIDO";
+        case MSG_JOGADOR_SAIU: return "MSG_JOGADOR_SAIU";
+        default: return "DESCONHECIDO";
     }
 }
 
-static DWORD WINAPI recvThreadProc(LPVOID param)
-{
-    SOCKET socket = (SOCKET)(uintptr_t)param;
+static DWORD WINAPI recvThreadProc(LPVOID param) {
+    SOCKET socket = (SOCKET) (uintptr_t) param;
 
     while (1) {
         Mensagem message;
         int result = recvAll(
             socket,
-            (char *)&message,
+            (char *) &message,
             sizeof(message)
         );
 
@@ -116,7 +116,7 @@ static DWORD WINAPI recvThreadProc(LPVOID param)
         debugLog(
             "RECEBIDO <- tipo=%s (%d) suaVez=%d jogadorId=%d qtdCartas=%d",
             tipoMensagemParaTexto(message.tipo),
-            (int)message.tipo,
+            (int) message.tipo,
             message.estado.partida.suaVez,
             message.estado.jogador.id,
             message.estado.jogador.qtdCartas
@@ -138,12 +138,28 @@ static DWORD WINAPI recvThreadProc(LPVOID param)
                     "Jogada invalida!"
                 );
                 g_shared.statusMsgExpiry =
-                    GetTickCount() + STATUS_MSG_DURATION_MS;
+                        GetTickCount() + STATUS_MSG_DURATION_MS;
                 break;
 
             case MSG_PARTIDA_FINALIZADA:
                 g_shared.estado = message.estado;
                 g_shared.hasEstado = true;
+
+                if (message.estado.jogador.qtdCartas == 0) {
+                    strncpy(
+                        g_shared.vencedor,
+                        message.estado.jogador.nome,
+                        MAX_NOME_JOGADOR - 1
+                    );
+                } else if (message.estado.partida.numeroCartasAdversario == 0) {
+                    strncpy(
+                        g_shared.vencedor,
+                        message.estado.partida.nomeAdversario,
+                        MAX_NOME_JOGADOR - 1
+                    );
+                }
+
+                g_shared.vencedor[MAX_NOME_JOGADOR - 1] = '\0';
                 g_shared.partidaFinalizada = true;
                 break;
 
@@ -163,8 +179,7 @@ static DWORD WINAPI recvThreadProc(LPVOID param)
     return 0;
 }
 
-static bool iniciarWinsock(void)
-{
+static bool iniciarWinsock(void) {
     WSADATA wsaData;
 
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
@@ -175,8 +190,7 @@ static bool iniciarWinsock(void)
     return true;
 }
 
-static SOCKET conectarServidor(const char *ip, int port)
-{
+static SOCKET conectarServidor(const char *ip, int port) {
     SOCKET clientSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
     if (clientSocket == INVALID_SOCKET) {
@@ -188,17 +202,17 @@ static SOCKET conectarServidor(const char *ip, int port)
     memset(&serverAddress, 0, sizeof(serverAddress));
 
     serverAddress.sin_family = AF_INET;
-    serverAddress.sin_port = htons((u_short)port);
+    serverAddress.sin_port = htons((u_short) port);
     serverAddress.sin_addr.s_addr = inet_addr(ip);
 
     printf("Conectando a %s:%d...\n", ip, port);
     fflush(stdout);
 
     if (connect(
-        clientSocket,
-        (struct sockaddr *)&serverAddress,
-        sizeof(serverAddress)
-    ) == SOCKET_ERROR) {
+            clientSocket,
+            (struct sockaddr *) &serverAddress,
+            sizeof(serverAddress)
+        ) == SOCKET_ERROR) {
         printf("Erro ao conectar. WSAError: %d\n", WSAGetLastError());
         closesocket(clientSocket);
         return INVALID_SOCKET;
@@ -210,10 +224,9 @@ static SOCKET conectarServidor(const char *ip, int port)
     return clientSocket;
 }
 
-static bool receberMensagemInicial(SOCKET socket)
-{
+static bool receberMensagemInicial(SOCKET socket) {
     Mensagem message;
-    int result = recvAll(socket, (char *)&message, sizeof(message));
+    int result = recvAll(socket, (char *) &message, sizeof(message));
 
     if (result == 0) {
         printf("\nServidor desconectou antes de iniciar a partida.\n");
@@ -231,7 +244,7 @@ static bool receberMensagemInicial(SOCKET socket)
     debugLog(
         "RECEBIDO (sincrono) <- tipo=%s (%d) suaVez=%d jogadorId=%d",
         tipoMensagemParaTexto(message.tipo),
-        (int)message.tipo,
+        (int) message.tipo,
         message.estado.partida.suaVez,
         message.estado.jogador.id
     );
@@ -248,8 +261,7 @@ static bool receberMensagemInicial(SOCKET socket)
     return true;
 }
 
-static bool validarTela(Screen *screen)
-{
+static bool validarTela(Screen *screen) {
     if (screen->height < 40) {
         printf(
             "[ERROR]: Screen height should be at least 40 but was %d.\n",
@@ -276,8 +288,7 @@ static void processarEntrada(
     HandUI *hand,
     Input input,
     int *running
-)
-{
+) {
     switch (input) {
         case INPUT_RIGHT:
             if (hand->selectedCard < estado->jogador.qtdCartas - 1) {
@@ -317,8 +328,7 @@ static void processarEntrada(
     }
 }
 
-static void exibirResultadoFinal(bool connectionLost, bool adversarioSaiu, bool partidaFinalizada)
-{
+static void exibirResultadoFinal(bool connectionLost, bool adversarioSaiu, bool partidaFinalizada) {
     printf("\033[?25h\n");
 
     if (connectionLost) {
@@ -336,12 +346,12 @@ static void exibirResultadoFinal(bool connectionLost, bool adversarioSaiu, bool 
         EnterCriticalSection(&g_shared.lock);
 
         bool venceu =
-            g_shared.hasEstado &&
-            g_shared.estado.jogador.qtdCartas == 0;
+                g_shared.hasEstado &&
+                g_shared.estado.jogador.qtdCartas == 0;
 
         bool perdeu =
-            g_shared.hasEstado &&
-            g_shared.estado.partida.numeroCartasAdversario == 0;
+                g_shared.hasEstado &&
+                g_shared.estado.partida.numeroCartasAdversario == 0;
 
         LeaveCriticalSection(&g_shared.lock);
 
@@ -358,8 +368,7 @@ static void exibirResultadoFinal(bool connectionLost, bool adversarioSaiu, bool 
     }
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
     static char stdoutBuffer[STDOUT_BUFFER_SIZE];
     setvbuf(stdout, stdoutBuffer, _IOFBF, sizeof(stdoutBuffer));
 
@@ -375,7 +384,7 @@ int main(int argc, char *argv[])
     InitializeCriticalSection(&g_logLock);
 
     remove(DEBUG_LOG_FILE);
-    debugLog("=== client iniciado (pid=%lu) ===", (unsigned long)GetCurrentProcessId());
+    debugLog("=== client iniciado (pid=%lu) ===", (unsigned long) GetCurrentProcessId());
 
     if (!iniciarWinsock()) {
         DeleteCriticalSection(&g_shared.lock);
@@ -404,7 +413,7 @@ int main(int argc, char *argv[])
         NULL,
         0,
         recvThreadProc,
-        (LPVOID)(uintptr_t)socket,
+        (LPVOID) (uintptr_t) socket,
         0,
         NULL
     );
@@ -486,8 +495,8 @@ int main(int argc, char *argv[])
 
             if (hand.selectedCard >= estado.jogador.qtdCartas) {
                 hand.selectedCard = estado.jogador.qtdCartas > 0
-                    ? estado.jogador.qtdCartas - 1
-                    : 0;
+                                        ? estado.jogador.qtdCartas - 1
+                                        : 0;
             }
 
             drawPlayerHand(&screen, &hand, &estado.jogador);
