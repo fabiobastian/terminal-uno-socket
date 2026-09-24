@@ -5,6 +5,8 @@ set(CMAKE_C_STANDARD 11)
 
 add_executable(UnoClient
         src/main.c
+        src/network.c
+        src/ui.c
 )
 
 target_include_directories(UnoClient PRIVATE
