@@ -166,6 +166,19 @@ static DWORD WINAPI recvThreadProc(LPVOID param) {
             case MSG_JOGADOR_SAIU:
                 g_shared.adversarioSaiu = true;
                 break;
+
+            default:
+                /*
+                 * Tipo de mensagem fora do enum conhecido. Antes isso era
+                 * ignorado silenciosamente; agora fica registrado no log
+                 * de debug para facilitar diagnosticar problemas de
+                 * protocolo entre client e server.
+                 */
+                debugLog(
+                    "RECEBIDO -> tipo de mensagem desconhecido (%d), ignorando",
+                    (int) message.tipo
+                );
+                break;
         }
 
         LeaveCriticalSection(&g_shared.lock);
@@ -328,7 +341,14 @@ static void processarEntrada(
     }
 }
 
-static void exibirResultadoFinal(bool connectionLost, bool adversarioSaiu, bool partidaFinalizada) {
+
+static void exibirResultadoFinal(
+    bool connectionLost,
+    bool adversarioSaiu,
+    bool partidaFinalizada,
+    bool venceu,
+    bool perdeu
+) {
     printf("\033[?25h\n");
 
     if (connectionLost) {
@@ -343,18 +363,6 @@ static void exibirResultadoFinal(bool connectionLost, bool adversarioSaiu, bool 
     }
 
     if (partidaFinalizada) {
-        EnterCriticalSection(&g_shared.lock);
-
-        bool venceu =
-                g_shared.hasEstado &&
-                g_shared.estado.jogador.qtdCartas == 0;
-
-        bool perdeu =
-                g_shared.hasEstado &&
-                g_shared.estado.partida.numeroCartasAdversario == 0;
-
-        LeaveCriticalSection(&g_shared.lock);
-
         if (venceu) {
             printf("Voce venceu!\n");
         } else if (perdeu) {
@@ -392,17 +400,17 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    SOCKET socket = conectarServidor(serverIp, serverPort);
+    SOCKET clientSocket = conectarServidor(serverIp, serverPort);
 
-    if (socket == INVALID_SOCKET) {
+    if (clientSocket == INVALID_SOCKET) {
         WSACleanup();
         DeleteCriticalSection(&g_shared.lock);
         DeleteCriticalSection(&g_logLock);
         return EXIT_FAILURE;
     }
 
-    if (!receberMensagemInicial(socket)) {
-        closesocket(socket);
+    if (!receberMensagemInicial(clientSocket)) {
+        closesocket(clientSocket);
         WSACleanup();
         DeleteCriticalSection(&g_shared.lock);
         DeleteCriticalSection(&g_logLock);
@@ -413,14 +421,14 @@ int main(int argc, char *argv[]) {
         NULL,
         0,
         recvThreadProc,
-        (LPVOID) (uintptr_t) socket,
+        (LPVOID) (uintptr_t) clientSocket,
         0,
         NULL
     );
 
     if (recvThread == NULL) {
         printf("Erro ao criar thread de recebimento.\n");
-        closesocket(socket);
+        closesocket(clientSocket);
         WSACleanup();
         DeleteCriticalSection(&g_shared.lock);
         DeleteCriticalSection(&g_logLock);
@@ -430,10 +438,10 @@ int main(int argc, char *argv[]) {
     Screen screen = getScreenSize();
 
     if (!validarTela(&screen)) {
-        shutdown(socket, SD_BOTH);
+        shutdown(clientSocket, SD_BOTH);
         WaitForSingleObject(recvThread, INFINITE);
         CloseHandle(recvThread);
-        closesocket(socket);
+        closesocket(clientSocket);
         WSACleanup();
         freeScreen(&screen);
         DeleteCriticalSection(&g_shared.lock);
@@ -513,7 +521,7 @@ int main(int argc, char *argv[]) {
 
         if (hasEstado) {
             processarEntrada(
-                socket,
+                clientSocket,
                 jogadorId,
                 &estado,
                 &hand,
@@ -531,13 +539,16 @@ int main(int argc, char *argv[]) {
     bool connectionLost = g_shared.connectionLost;
     bool adversarioSaiu = g_shared.adversarioSaiu;
     bool partidaFinalizada = g_shared.partidaFinalizada;
+    bool venceu = g_shared.hasEstado && g_shared.estado.jogador.qtdCartas == 0;
+    bool perdeu = g_shared.hasEstado &&
+                  g_shared.estado.partida.numeroCartasAdversario == 0;
     LeaveCriticalSection(&g_shared.lock);
 
-    shutdown(socket, SD_BOTH);
+    shutdown(clientSocket, SD_BOTH);
     WaitForSingleObject(recvThread, INFINITE);
     CloseHandle(recvThread);
 
-    closesocket(socket);
+    closesocket(clientSocket);
     WSACleanup();
     freeScreen(&screen);
 
@@ -549,7 +560,9 @@ int main(int argc, char *argv[]) {
     exibirResultadoFinal(
         connectionLost,
         adversarioSaiu,
-        partidaFinalizada
+        partidaFinalizada,
+        venceu,
+        perdeu
     );
 
     printf("Encerrado. Pressione ENTER para sair...\n");
