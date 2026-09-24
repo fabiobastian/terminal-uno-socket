@@ -32,7 +32,6 @@ typedef struct {
 
     int qtdCartasPossiveis;
     int idsCartasPossiveis[MAX_QTD_CARTAS_JOGADOR];
-
 } Jogador;
 
 
@@ -45,7 +44,6 @@ typedef struct {
 
     int numeroCartasAdversario;
     char nomeAdversario[MAX_NOME_JOGADOR];
-
 } Partida;
 
 
